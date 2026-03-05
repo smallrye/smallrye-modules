@@ -785,15 +785,22 @@ public class ModuleClassLoader extends ClassLoader {
             // link up special package accesses of dependency (only for immediate dependencies)
             Module myModule = module();
             for (Map.Entry<String, PackageAccess> entry : dependency.packageAccesses().entrySet()) {
-                switch (entry.getValue()) {
-                    case EXPORTED -> Access.addExports(depModule, entry.getKey(), myModule);
-                    case OPEN -> Access.addOpens(depModule, entry.getKey(), myModule);
-                    case PRIVATE -> {
-                        continue;
+                String pn = entry.getKey();
+                if (depModule.getPackages().contains(pn)) {
+                    switch (entry.getValue()) {
+                        case EXPORTED -> Access.addExports(depModule, pn, myModule);
+                        case OPEN -> Access.addOpens(depModule, pn, myModule);
+                        case PRIVATE -> {
+                            continue;
+                        }
                     }
+                } else {
+                    log.warnf("Module %s requested access to package %s in %s, but the package is not present in that module",
+                        moduleName(), pn, dependency.moduleName()
+                    );
                 }
                 if (linked) {
-                    modulesByPackage.putIfAbsent(entry.getKey(), lm);
+                    modulesByPackage.putIfAbsent(pn, lm);
                 }
             }
         }

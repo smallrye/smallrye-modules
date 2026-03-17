@@ -1,5 +1,5 @@
 
-module io.github.dmlloyd.modules {
+module io.smallrye.modules {
     requires transitive java.xml;
     requires java.logging;
 
@@ -12,8 +12,8 @@ module io.github.dmlloyd.modules {
     requires io.smallrye.common.os;
     requires transitive io.smallrye.common.resource;
 
-    exports io.github.dmlloyd.modules;
-    exports io.github.dmlloyd.modules.desc;
+    exports io.smallrye.modules;
+    exports io.smallrye.modules.desc;
 
     uses java.util.logging.LogManager;
 }

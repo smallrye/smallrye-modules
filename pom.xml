@@ -6,7 +6,7 @@
 
     <groupId>io.smallrye.modules</groupId>
     <artifactId>smallrye-modules</artifactId>
-    <version>1.0-alpha1-SNAPSHOT</version>
+    <version>1.0.alpha1-SNAPSHOT</version>
 
     <parent>
         <groupId>io.smallrye</groupId>

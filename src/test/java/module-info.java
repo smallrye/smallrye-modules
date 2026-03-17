@@ -1,7 +1,7 @@
-open module io.github.dmlloyd.modules.test {
-    requires io.github.dmlloyd.modules;
+open module io.smallrye.modules.test {
+    requires io.smallrye.modules;
     requires io.smallrye.common.resource;
     requires org.junit.jupiter.api;
 
-    exports io.github.dmlloyd.modules.test;
+    exports io.smallrye.modules.test;
 }

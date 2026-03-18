@@ -206,15 +206,15 @@ public class ModuleClassLoader extends ClassLoader {
         if (name.startsWith("[")) {
             return loadClassFromDescriptor(name, 0);
         }
-        String dotName = name.replace('/', '.');
-        String packageName = Util.packageName(dotName);
+        String binaryName = name.replace('/', '.');
+        String packageName = Util.packageName(binaryName);
         if (packageName.isEmpty() || linkNew().packages().containsKey(packageName)) {
             // force full linkage
             linkPackages();
             return loadClassDirect(name);
         }
         if (bootModuleIndex.containsKey(packageName)) {
-            if (dotName.equals("java.util.ServiceLoader")) {
+            if (binaryName.equals("java.util.ServiceLoader")) {
                 // loading services! extra linking required
                 linkUses();
             }
@@ -224,7 +224,7 @@ public class ModuleClassLoader extends ClassLoader {
                 throw new ClassNotFoundException("Cannot load " + name + ": package " + packageName + " not exported from "
                         + module + " to " + module());
             }
-            Class<?> result = Class.forName(module, dotName);
+            Class<?> result = Class.forName(module, binaryName);
             if (result != null) {
                 return result;
             }
@@ -238,14 +238,14 @@ public class ModuleClassLoader extends ClassLoader {
         Class<?> loaded;
         ClassLoader cl = lm.classLoader();
         if (cl == this) {
-            loaded = loadClassDirect(dotName);
+            loaded = loadClassDirect(binaryName);
         } else {
             Module module = module();
             if (lm.module().isExported(packageName, module)) {
                 if (cl instanceof ModuleClassLoader mcl) {
-                    loaded = mcl.loadClassDirect(dotName);
+                    loaded = mcl.loadClassDirect(binaryName);
                 } else {
-                    loaded = Class.forName(dotName, false, cl);
+                    loaded = Class.forName(binaryName, false, cl);
                 }
             } else {
                 throw new ClassNotFoundException(lm.name().map(n -> "Module " + n).orElse("Unnamed module")

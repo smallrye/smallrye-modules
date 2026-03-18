@@ -57,6 +57,9 @@ import io.smallrye.modules.desc.PackageAccess;
 import io.smallrye.modules.desc.PackageInfo;
 import io.smallrye.modules.impl.Access;
 import io.smallrye.modules.impl.Util;
+import io.smallrye.modules.jfr.DefineDuplicateEvent;
+import io.smallrye.modules.jfr.DefineFailedEvent;
+import io.smallrye.modules.jfr.LinkEvent;
 
 /**
  * A class loader for a module.
@@ -621,28 +624,46 @@ public class ModuleClassLoader extends ClassLoader {
         if (linkState instanceof LinkState.Dependencies dependencies) {
             return dependencies;
         }
-        List<Dependency> lsDeps = linkState.dependencies();
-        ArrayList<LoadedDependency> loadedDependencies = new ArrayList<>(lsDeps.size());
-        for (Dependency dep : lsDeps) {
-            ModuleLoader ml = dep.moduleLoader().orElse(moduleLoader);
-            LoadedModule lm;
-            if (dep.modifiers().contains(Dependency.Modifier.OPTIONAL)) {
-                lm = ml.loadModule(dep.moduleName());
-            } else {
-                try {
-                    lm = ml.requireModule(dep.moduleName());
-                } catch (ModuleLoadException e) {
-                    throw e.withMessage(e.getMessage() + " (required by " + moduleName + ")");
+        LinkEvent event = new LinkEvent();
+        if (event.isEnabled()) {
+            event.moduleName = moduleName;
+            event.moduleVersion = moduleVersion;
+            event.linkStage = "dependencies";
+            event.begin();
+        } else {
+            event = null;
+        }
+        try {
+            List<Dependency> lsDeps = linkState.dependencies();
+            ArrayList<LoadedDependency> loadedDependencies = new ArrayList<>(lsDeps.size());
+            for (Dependency dep : lsDeps) {
+                ModuleLoader ml = dep.moduleLoader().orElse(moduleLoader);
+                LoadedModule lm;
+                if (dep.modifiers().contains(Dependency.Modifier.OPTIONAL)) {
+                    lm = ml.loadModule(dep.moduleName());
+                } else {
+                    try {
+                        lm = ml.requireModule(dep.moduleName());
+                    } catch (ModuleLoadException e) {
+                        throw e.withMessage(e.getMessage() + " (required by " + moduleName + ")");
+                    }
+                }
+                if (lm != null) {
+                    if (lm.classLoader() == this && lm.name().isPresent()) {
+                        throw new ModuleLoadException("Module " + moduleName() + " depends on itself");
+                    }
+                    loadedDependencies.add(new LoadedDependency(dep, lm));
                 }
             }
-            if (lm != null) {
-                if (lm.classLoader() == this && lm.name().isPresent()) {
-                    throw new ModuleLoadException("Module " + moduleName() + " depends on itself");
+            return doLocked(ModuleClassLoader::linkDependenciesLocked, loadedDependencies);
+        } finally {
+            if (event != null) {
+                event.end();
+                if (event.shouldCommit()) {
+                    event.commit();
                 }
-                loadedDependencies.add(new LoadedDependency(dep, lm));
             }
         }
-        return doLocked(ModuleClassLoader::linkDependenciesLocked, loadedDependencies);
     }
 
     private LinkState.Dependencies linkDependenciesLocked(List<LoadedDependency> loadedDependencies) {
@@ -678,35 +699,54 @@ public class ModuleClassLoader extends ClassLoader {
         if (linkState instanceof LinkState.Defined defined) {
             return defined;
         }
-        java.lang.module.ModuleDescriptor descriptor;
-        if (linkState.modifiers().contains(ModuleDescriptor.Modifier.UNNAMED)) {
-            descriptor = null;
+        LinkEvent event = new LinkEvent();
+        if (event.isEnabled()) {
+            event.moduleName = moduleName;
+            event.moduleVersion = moduleVersion;
+            event.linkStage = "defined";
+            event.begin();
         } else {
-            java.lang.module.ModuleDescriptor.Builder builder = java.lang.module.ModuleDescriptor.newModule(
-                    moduleName,
-                    toJlmModifiers(linkState.modifiers()));
-            try {
-                java.lang.module.ModuleDescriptor.Version v = java.lang.module.ModuleDescriptor.Version.parse(moduleVersion);
-                builder.version(v);
-            } catch (IllegalArgumentException ignored) {
-            }
-            builder.packages(linkState.packages().keySet());
-            if (mainClassName != null) {
-                // not actually used, but for completeness...
-                builder.mainClass(mainClassName);
-            }
-            if (!linkState.modifiers().contains(ModuleDescriptor.Modifier.AUTOMATIC)) {
-                linkState.packages().forEach((name, pkg) -> {
-                    switch (pkg.packageAccess()) {
-                        case EXPORTED -> builder.exports(name);
-                        case OPEN -> builder.opens(name);
-                    }
-                });
-                linkState.dependencies().forEach(d -> builder.requires(justStatic, d.moduleName()));
-            }
-            descriptor = builder.build();
+            event = null;
         }
-        return doLocked(ModuleClassLoader::linkDefinedLocked, descriptor);
+        try {
+            java.lang.module.ModuleDescriptor descriptor;
+            if (linkState.modifiers().contains(ModuleDescriptor.Modifier.UNNAMED)) {
+                descriptor = null;
+            } else {
+                java.lang.module.ModuleDescriptor.Builder builder = java.lang.module.ModuleDescriptor.newModule(
+                        moduleName,
+                        toJlmModifiers(linkState.modifiers()));
+                try {
+                    java.lang.module.ModuleDescriptor.Version v = java.lang.module.ModuleDescriptor.Version
+                            .parse(moduleVersion);
+                    builder.version(v);
+                } catch (IllegalArgumentException ignored) {
+                }
+                builder.packages(linkState.packages().keySet());
+                if (mainClassName != null) {
+                    // not actually used, but for completeness...
+                    builder.mainClass(mainClassName);
+                }
+                if (!linkState.modifiers().contains(ModuleDescriptor.Modifier.AUTOMATIC)) {
+                    linkState.packages().forEach((name, pkg) -> {
+                        switch (pkg.packageAccess()) {
+                            case EXPORTED -> builder.exports(name);
+                            case OPEN -> builder.opens(name);
+                        }
+                    });
+                    linkState.dependencies().forEach(d -> builder.requires(justStatic, d.moduleName()));
+                }
+                descriptor = builder.build();
+            }
+            return doLocked(ModuleClassLoader::linkDefinedLocked, descriptor);
+        } finally {
+            if (event != null) {
+                event.end();
+                if (event.shouldCommit()) {
+                    event.commit();
+                }
+            }
+        }
     }
 
     private static final List<Configuration> PARENT_CONFIGS = List.of(ModuleLayer.boot().configuration());
@@ -717,7 +757,6 @@ public class ModuleClassLoader extends ClassLoader {
         if (linkState instanceof LinkState.Defined defined) {
             return defined;
         }
-        log.debugf("Linking module %s to defined state", moduleName);
         LinkState.Defined defined;
         if (linkState.modifiers().contains(ModuleDescriptor.Modifier.UNNAMED)) {
             // nothing needed
@@ -761,69 +800,88 @@ public class ModuleClassLoader extends ClassLoader {
         if (linkState instanceof LinkState.Packages packages) {
             return packages;
         }
-        LoadedModule self = LoadedModule.forModule(linkState.module());
-        HashSet<LoadedModule> visited = new HashSet<>();
-        visited.add(self);
-        // link immediate dependency packages
-        HashMap<String, LoadedModule> modulesByPackage = new HashMap<>();
-        for (LoadedDependency ld : linkState.loadedDependencies()) {
-            Dependency dependency = ld.dependency();
-            LoadedModule lm = ld.loadedModule();
-            Module depModule = lm.module();
-            if (dependency.isRead()) {
-                linkState.addReads(depModule);
-            }
-            if (dependency.isServices()) {
-                // link up service loaders early; needed in case someone uses ServiceLoader.load(svc, myMCL)
-                // TODO in this case providers are still not registered
-                ModuleLayer layer = depModule.getLayer();
-                if (layer != ModuleLayer.boot()) {
-                    registerLayer(layer);
+        LinkEvent event = new LinkEvent();
+        if (event.isEnabled()) {
+            event.moduleName = moduleName;
+            event.moduleVersion = moduleVersion;
+            event.linkStage = "dependencies";
+            event.begin();
+        } else {
+            event = null;
+        }
+        try {
+            LoadedModule self = LoadedModule.forModule(linkState.module());
+            HashSet<LoadedModule> visited = new HashSet<>();
+            visited.add(self);
+            // link immediate dependency packages
+            HashMap<String, LoadedModule> modulesByPackage = new HashMap<>();
+            for (LoadedDependency ld : linkState.loadedDependencies()) {
+                Dependency dependency = ld.dependency();
+                LoadedModule lm = ld.loadedModule();
+                Module depModule = lm.module();
+                if (dependency.isRead()) {
+                    linkState.addReads(depModule);
                 }
-            }
-            boolean linked = dependency.isLinked();
-            linkTransitive(linkState, dependency.isRead(), linked, lm, modulesByPackage, visited);
-            // link up special package accesses of dependency (only for immediate dependencies)
-            Module myModule = module();
-            for (Map.Entry<String, PackageAccess> entry : dependency.packageAccesses().entrySet()) {
-                String pn = entry.getKey();
-                if (depModule.getPackages().contains(pn)) {
-                    switch (entry.getValue()) {
-                        case EXPORTED -> Access.addExports(depModule, pn, myModule);
-                        case OPEN -> Access.addOpens(depModule, pn, myModule);
-                        case PRIVATE -> {
-                            continue;
-                        }
+                if (dependency.isServices()) {
+                    // link up service loaders early; needed in case someone uses ServiceLoader.load(svc, myMCL)
+                    // TODO in this case providers are still not registered
+                    ModuleLayer layer = depModule.getLayer();
+                    if (layer != ModuleLayer.boot()) {
+                        registerLayer(layer);
                     }
-                } else {
-                    log.warnf("Module %s requested access to package %s in %s, but the package is not present in that module",
-                            moduleName(), pn, dependency.moduleName());
                 }
-                if (linked) {
-                    modulesByPackage.putIfAbsent(pn, lm);
+                boolean linked = dependency.isLinked();
+                linkTransitive(linkState, dependency.isRead(), linked, lm, modulesByPackage, visited);
+                // link up special package accesses of dependency (only for immediate dependencies)
+                Module myModule = module();
+                for (Map.Entry<String, PackageAccess> entry : dependency.packageAccesses().entrySet()) {
+                    String pn = entry.getKey();
+                    if (depModule.getPackages().contains(pn)) {
+                        switch (entry.getValue()) {
+                            case EXPORTED -> Access.addExports(depModule, pn, myModule);
+                            case OPEN -> Access.addOpens(depModule, pn, myModule);
+                            case PRIVATE -> {
+                                continue;
+                            }
+                        }
+                    } else {
+                        log.warnf(
+                                "Module %s requested access to package %s in %s, but the package is not present in that module",
+                                moduleName(), pn, dependency.moduleName());
+                    }
+                    if (linked) {
+                        modulesByPackage.putIfAbsent(pn, lm);
+                    }
+                }
+            }
+            // and don't forget our own packages
+            for (String pkg : linkState.packages().keySet()) {
+                modulesByPackage.put(pkg, self);
+            }
+            // link up directed exports and opens (TODO: do this later when target module is loaded)
+            for (Map.Entry<String, PackageInfo> entry : linkState.packages().entrySet()) {
+                for (String target : entry.getValue().exportTargets()) {
+                    LoadedModule resolved = moduleLoader().loadModule(target);
+                    if (resolved != null) {
+                        linkState.addExports(entry.getKey(), resolved.module());
+                    }
+                }
+                for (String target : entry.getValue().openTargets()) {
+                    LoadedModule resolved = moduleLoader().loadModule(target);
+                    if (resolved != null) {
+                        linkState.addOpens(entry.getKey(), resolved.module());
+                    }
+                }
+            }
+            return doLocked(ModuleClassLoader::linkPackagesLocked, modulesByPackage);
+        } finally {
+            if (event != null) {
+                event.end();
+                if (event.shouldCommit()) {
+                    event.commit();
                 }
             }
         }
-        // and don't forget our own packages
-        for (String pkg : linkState.packages().keySet()) {
-            modulesByPackage.put(pkg, self);
-        }
-        // link up directed exports and opens (TODO: do this later when target module is loaded)
-        for (Map.Entry<String, PackageInfo> entry : linkState.packages().entrySet()) {
-            for (String target : entry.getValue().exportTargets()) {
-                LoadedModule resolved = moduleLoader().loadModule(target);
-                if (resolved != null) {
-                    linkState.addExports(entry.getKey(), resolved.module());
-                }
-            }
-            for (String target : entry.getValue().openTargets()) {
-                LoadedModule resolved = moduleLoader().loadModule(target);
-                if (resolved != null) {
-                    linkState.addOpens(entry.getKey(), resolved.module());
-                }
-            }
-        }
-        return doLocked(ModuleClassLoader::linkPackagesLocked, modulesByPackage);
     }
 
     private LinkState.Packages linkPackagesLocked(final Map<String, LoadedModule> modulesByPackage) {
@@ -832,7 +890,6 @@ public class ModuleClassLoader extends ClassLoader {
         if (defined instanceof LinkState.Packages packages) {
             return packages;
         }
-        log.debugf("Linking module %s to packages state", moduleName);
         LinkState.Packages linked = new LinkState.Packages(
                 defined,
                 Map.copyOf(modulesByPackage));
@@ -912,25 +969,43 @@ public class ModuleClassLoader extends ClassLoader {
         if (linkState instanceof LinkState.Provides provides) {
             return provides;
         }
-        // define provided services
-        for (Map.Entry<String, List<String>> entry : linkState.provides().entrySet()) {
-            Class<?> service;
-            try {
-                service = loadClass(entry.getKey());
-            } catch (ClassNotFoundException e) {
-                continue;
-            }
-            for (String implName : entry.getValue()) {
-                Class<?> impl;
+        LinkEvent event = new LinkEvent();
+        if (event.isEnabled()) {
+            event.moduleName = moduleName;
+            event.moduleVersion = moduleVersion;
+            event.linkStage = "provides";
+            event.begin();
+        } else {
+            event = null;
+        }
+        try {
+            // define provided services
+            for (Map.Entry<String, List<String>> entry : linkState.provides().entrySet()) {
+                Class<?> service;
                 try {
-                    impl = loadClassDirect(implName);
+                    service = loadClass(entry.getKey());
                 } catch (ClassNotFoundException e) {
                     continue;
                 }
-                linkState.addProvider(service, impl);
+                for (String implName : entry.getValue()) {
+                    Class<?> impl;
+                    try {
+                        impl = loadClassDirect(implName);
+                    } catch (ClassNotFoundException e) {
+                        continue;
+                    }
+                    linkState.addProvider(service, impl);
+                }
+            }
+            return doLocked(ModuleClassLoader::linkProvidesLocked);
+        } finally {
+            if (event != null) {
+                event.end();
+                if (event.shouldCommit()) {
+                    event.commit();
+                }
             }
         }
-        return doLocked(ModuleClassLoader::linkProvidesLocked);
     }
 
     private LinkState.Provides linkProvidesLocked() {
@@ -939,9 +1014,7 @@ public class ModuleClassLoader extends ClassLoader {
         if (linkState instanceof LinkState.Provides provides) {
             return provides;
         }
-        log.debugf("Linking module %s to provides state", moduleName);
-        LinkState.Provides newState = new LinkState.Provides(
-                linkState);
+        LinkState.Provides newState = new LinkState.Provides(linkState);
         this.linkState = newState;
         return newState;
     }
@@ -955,18 +1028,36 @@ public class ModuleClassLoader extends ClassLoader {
         if (linkState instanceof LinkState.Uses uses) {
             return uses;
         }
-        for (LoadedDependency ld : linkState.loadedDependencies()) {
-            if (ld.dependency().isServices() && ld.loadedModule().classLoader() instanceof ModuleClassLoader mcl) {
-                mcl.linkProvides();
+        LinkEvent event = new LinkEvent();
+        if (event.isEnabled()) {
+            event.moduleName = moduleName;
+            event.moduleVersion = moduleVersion;
+            event.linkStage = "uses";
+            event.begin();
+        } else {
+            event = null;
+        }
+        try {
+            for (LoadedDependency ld : linkState.loadedDependencies()) {
+                if (ld.dependency().isServices() && ld.loadedModule().classLoader() instanceof ModuleClassLoader mcl) {
+                    mcl.linkProvides();
+                }
+            }
+            for (String used : linkState.uses()) {
+                try {
+                    linkState.addUses(loadClass(used));
+                } catch (ClassNotFoundException ignored) {
+                }
+            }
+            return doLocked(ModuleClassLoader::linkUsesLocked);
+        } finally {
+            if (event != null) {
+                event.end();
+                if (event.shouldCommit()) {
+                    event.commit();
+                }
             }
         }
-        for (String used : linkState.uses()) {
-            try {
-                linkState.addUses(loadClass(used));
-            } catch (ClassNotFoundException ignored) {
-            }
-        }
-        return doLocked(ModuleClassLoader::linkUsesLocked);
     }
 
     private LinkState.Uses linkUsesLocked() {
@@ -975,7 +1066,6 @@ public class ModuleClassLoader extends ClassLoader {
         if (linkState instanceof LinkState.Uses uses) {
             return uses;
         }
-        log.debugf("Linking module %s to uses state", moduleName);
         LinkState.Uses newState = new LinkState.Uses(
                 linkState);
         this.linkState = newState;
@@ -1064,18 +1154,44 @@ public class ModuleClassLoader extends ClassLoader {
             return defineClass(binaryName, buffer, pd);
         } catch (VerifyError e) {
             // serious problem!
-            log.debugf(e, "Verifying class %s failed", binaryName);
+            DefineFailedEvent event = new DefineFailedEvent();
+            if (event.isEnabled()) {
+                event.className = binaryName;
+                event.moduleName = moduleName;
+                event.moduleVersion = moduleVersion;
+                event.reason = e.toString();
+                if (event.shouldCommit()) {
+                    event.commit();
+                }
+            }
             throw e;
         } catch (LinkageError e) {
             // probably a duplicate
             Class<?> loaded = findLoadedClass(binaryName);
             if (loaded != null) {
+                DefineDuplicateEvent event = new DefineDuplicateEvent();
+                if (event.isEnabled()) {
+                    event.className = binaryName;
+                    event.moduleName = moduleName;
+                    event.moduleVersion = moduleVersion;
+                    if (event.shouldCommit()) {
+                        event.commit();
+                    }
+                }
                 return loaded;
             }
             // actually some other problem
-            LinkageError le = new LinkageError("Failed to link class " + binaryName + " in " + this, e);
-            log.debugf(e, "Failed to load %s", binaryName);
-            throw le;
+            DefineFailedEvent event = new DefineFailedEvent();
+            if (event.isEnabled()) {
+                event.className = binaryName;
+                event.moduleName = moduleName;
+                event.moduleVersion = moduleVersion;
+                event.reason = e.toString();
+                if (event.shouldCommit()) {
+                    event.commit();
+                }
+            }
+            throw new LinkageError("Failed to link class " + binaryName + " in " + this, e);
         }
     }
 

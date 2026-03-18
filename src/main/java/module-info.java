@@ -3,6 +3,8 @@ module io.smallrye.modules {
     requires transitive java.xml;
     requires java.logging;
 
+    requires jdk.jfr;
+
     requires org.jboss.logging;
 
     requires io.smallrye.classfile;
@@ -14,6 +16,7 @@ module io.smallrye.modules {
 
     exports io.smallrye.modules;
     exports io.smallrye.modules.desc;
+    exports io.smallrye.modules.jfr to jdk.jfr;
 
     uses java.util.logging.LogManager;
 }

@@ -1,5 +1,5 @@
 name: SmallRye Modules
 # for this project, always set next-version to the next *minor* unless it's on a stable branch!
 release:
-  current-version: 1.0.alpha1-SNAPSHOT
+  current-version: 1.0.alpha1
   next-version: 1.0.alpha2-SNAPSHOT

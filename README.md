@@ -14,4 +14,4 @@ the Java platform module system.
 
 ## History
 
-This project is loosely based on its predecessor, [JBoss Modules](https://github.com/jboss/jboss-modules).
+This project is loosely based on its predecessor, [JBoss Modules](https://github.com/jboss-modules/jboss-modules).

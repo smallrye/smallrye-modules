@@ -212,21 +212,18 @@ public record ModuleDescriptor(
                 } else {
                     String pathName = child.pathName();
                     if (pathName.endsWith(".class")) {
-                        int idx = pathName.lastIndexOf('/');
-                        if (idx != -1) {
-                            String pn = pathName.substring(0, idx).replace('/', '.');
-                            if (found.add(pn)) {
-                                PackageInfo existing = map.get(pn);
-                                PackageInfo update = packageFunction.apply(pn, existing);
-                                if (update == null || update.equals(existing)) {
-                                    // skip it
-                                    continue;
-                                }
-                                if (map == packages) {
-                                    map = new HashMap<>(packages);
-                                }
-                                map.put(pn, update);
+                        String pn = Util.resourcePackageName(pathName);
+                        if (!pn.isEmpty() && found.add(pn)) {
+                            PackageInfo existing = map.get(pn);
+                            PackageInfo update = packageFunction.apply(pn, existing);
+                            if (update == null || update.equals(existing)) {
+                                // skip it
+                                continue;
                             }
+                            if (map == packages) {
+                                map = new HashMap<>(packages);
+                            }
+                            map.put(pn.intern(), update);
                         }
                     }
                 }

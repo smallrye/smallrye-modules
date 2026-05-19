@@ -453,10 +453,6 @@ public class ModuleClassLoader extends ClassLoader {
         return null;
     }
 
-    private static boolean isServiceFileName(final String name) {
-        return name.startsWith("META-INF/services/") && name.lastIndexOf('/') == 17;
-    }
-
     final List<Resource> loadResourcesDirect(final String rawName) throws IOException {
         String name = ResourceUtils.canonicalizeRelativePath(rawName);
         if (name.equals("module-info.class")) {
@@ -1214,6 +1210,10 @@ public class ModuleClassLoader extends ClassLoader {
         return info.exportTargets().contains(toModule.getName());
     }
 
+    /**
+     * The opaque class loader configuration object.
+     * This may only be used to configure a single module class loader.
+     */
     public static final class ClassLoaderConfiguration {
         private Thread valid;
         private final ModuleLoader moduleLoader;
@@ -1265,6 +1265,10 @@ public class ModuleClassLoader extends ClassLoader {
         public Set<ModuleReference> findAll() {
             return Set.of(modRef);
         }
+    }
+
+    private static boolean isServiceFileName(final String name) {
+        return name.startsWith("META-INF/services/") && name.lastIndexOf('/') == 17;
     }
 
     private static final Logger log = Logger.getLogger(ModuleClassLoader.class.getModule().getName());

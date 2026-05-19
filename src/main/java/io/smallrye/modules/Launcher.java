@@ -201,12 +201,19 @@ public final class Launcher implements Runnable {
         }
     }
 
+    /**
+     * The main entry point for a simple launcher.
+     * Note that for most applications, there is a purpose-specific launcher rather than this one.
+     *
+     * @param args the command-line arguments (must not be {@code null})
+     */
     public static void main(String[] args) {
         main(List.of(args));
     }
 
     /**
-     * The main entry point.
+     * The main entry point for a simple launcher.
+     * Note that for most applications, there is a purpose-specific launcher rather than this one.
      *
      * @param args the command-line arguments (must not be {@code null})
      */
@@ -214,13 +221,15 @@ public final class Launcher implements Runnable {
         // force logging initialization
         ServiceLoader<LogManager> logManagerLoader = ServiceLoader.load(LogManager.class);
         Iterator<LogManager> lmIter = logManagerLoader.iterator();
-        while (true)
+        for (;;) {
             try {
-                if (!lmIter.hasNext())
+                if (!lmIter.hasNext()) {
                     break;
+                }
                 lmIter.next();
             } catch (ServiceConfigurationError ignored) {
             }
+        }
         args = List.copyOf(args);
         Iterator<String> iterator = args.iterator();
         List<Path> modulePath = List.of(Path.of("."));

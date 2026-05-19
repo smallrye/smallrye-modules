@@ -29,6 +29,7 @@ public final class Access {
     static {
         // initialize method handles
         try {
+            @SuppressWarnings("Java9ReflectionClassVisibility")
             Class<?> modules = Class.forName("jdk.internal.module.Modules", true, null);
             addOpens = lookup.findStatic(modules, "addOpens",
                     MethodType.methodType(void.class, Module.class, String.class, Module.class));

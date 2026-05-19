@@ -55,16 +55,19 @@ public class ModuleLoader implements Closeable {
     public LoadedModule loadModule(final String moduleName) {
         checkClosed();
         if (moduleName.equals("java.base")) {
-            return BASE.loadModule("java.base");
+            return loadedJavaBase;
         }
         ModuleClassLoader loaded = findDefinedModule(moduleName);
         if (loaded == null) {
-            loaded = findModule(moduleName);
-            if (loaded == null) {
-                return null;
+            FoundModule foundModule = finder.findModule(moduleName);
+            if (foundModule != null) {
+                loaded = tryDefineModule(moduleName, foundModule.loaderOpeners(), foundModule.descriptorLoader());
+                if (loaded == null) {
+                    loaded = findDefinedModule(moduleName);
+                }
             }
         }
-        return LoadedModule.forModuleClassLoader(loaded);
+        return loaded == null ? null : LoadedModule.forModuleClassLoader(loaded);
     }
 
     private void checkClosed() {
@@ -73,6 +76,13 @@ public class ModuleLoader implements Closeable {
         }
     }
 
+    /**
+     * Load a module, throwing an exception if it is not present.
+     *
+     * @param moduleName the name of the module to load (must not be {@code null})
+     * @return the loaded module (not {@code null})
+     * @throws ModuleNotFoundException if the module cannot be found
+     */
     public final LoadedModule requireModule(final String moduleName) {
         LoadedModule loadedModule = loadModule(moduleName);
         if (loadedModule == null) {
@@ -109,25 +119,6 @@ public class ModuleLoader implements Closeable {
     }
 
     /**
-     * Load a module defined by this module loader.
-     * No delegation is performed.
-     *
-     * @param moduleName the module name (must not be {@code null})
-     * @return the module, or {@code null} if the module is not found within this loader
-     */
-    protected ModuleClassLoader findModule(String moduleName) {
-        FoundModule foundModule = finder.findModule(moduleName);
-        if (foundModule != null) {
-            ModuleClassLoader result = tryDefineModule(moduleName, foundModule.loaderOpeners(), foundModule.descriptorLoader());
-            if (result == null) {
-                result = findDefinedModule(moduleName);
-            }
-            return result;
-        }
-        return null;
-    }
-
-    /**
      * Atomically try to define a module with the given name, if it is not already defined.
      * If the module is already defined, then {@code null} is returned.
      * If the module cannot be defined due to an error, then an exception is thrown.
@@ -144,27 +135,33 @@ public class ModuleLoader implements Closeable {
             String moduleName,
             List<ResourceLoaderOpener> loaderOpeners,
             ModuleDescriptorLoader descriptorLoader) throws ModuleLoadException {
-        ConcurrentHashMap<String, DefinedModule> loadedModules = this.definedModules;
+
         checkClosed();
-        DefinedModule existing = loadedModules.get(moduleName);
-        if (existing != null) {
+
+        ConcurrentHashMap<String, DefinedModule> loadedModules = this.definedModules;
+        if (loadedModules.containsKey(moduleName)) {
             return null;
         }
         ReentrantLock lock = defineLock;
         lock.lock();
         DefinedModule dm;
         try {
-            dm = new DefinedModule.New(moduleName, loaderOpeners, descriptorLoader);
-            existing = loadedModules.putIfAbsent(moduleName, dm);
-            if (existing != null) {
+            if (loadedModules.containsKey(moduleName)) {
                 return null;
             }
+            dm = new DefinedModule.New(moduleName, loaderOpeners, descriptorLoader);
+            loadedModules.put(moduleName, dm);
         } finally {
             lock.unlock();
         }
         return dm.moduleClassLoader(this);
     }
 
+    /**
+     * Close the module loader and release the resources associated with its modules.
+     *
+     * @throws IOException if closing any part of the loader fails
+     */
     public void close() throws IOException {
         if (closed) {
             return;
@@ -196,11 +193,29 @@ public class ModuleLoader implements Closeable {
                 }
             }
         }
+        if (finder != null) {
+            try {
+                finder.close();
+            } catch (Throwable t) {
+                if (ioe == null) {
+                    ioe = new IOException("Error while closing module loader " + this, t);
+                } else {
+                    ioe.addSuppressed(t);
+                }
+            }
+        }
         if (ioe != null) {
             throw ioe;
         }
     }
 
+    /**
+     * Create a new module loader that aggregates the given module loaders, searching them in order.
+     *
+     * @param name the name of the module loader to create (must not be {@code null})
+     * @param loaders the module loaders to aggregate (must not be {@code null})
+     * @return the module loader (not {@code null})
+     */
     public static ModuleLoader aggregate(String name, List<ModuleLoader> loaders) {
         List<ModuleLoader> copy = List.copyOf(loaders);
         return new ModuleLoader(name, ModuleFinder.EMPTY) {
@@ -220,27 +235,37 @@ public class ModuleLoader implements Closeable {
         };
     }
 
+    /**
+     * Create a new module loader that aggregates the given module loaders, searching them in order.
+     *
+     * @param name the name of the module loader to create (must not be {@code null})
+     * @param loaders the module loaders to aggregate (must not be {@code null})
+     * @return the module loader (not {@code null})
+     */
     public static ModuleLoader aggregate(String name, ModuleLoader... loaders) {
         return aggregate(name, List.of(loaders));
     }
 
+    /**
+     * An empty module loader.
+     */
     public static final ModuleLoader EMPTY = new ModuleLoader("empty", ModuleFinder.EMPTY);
 
-    public static final ModuleLoader BASE = new ModuleLoader("java.base", ModuleFinder.EMPTY) {
-        private static final Module javaBase = Object.class.getModule();
-        private static final LoadedModule loadedJavaBase = LoadedModule.forModule(javaBase);
+    private static final Module javaBase = Object.class.getModule();
+    private static final LoadedModule loadedJavaBase = LoadedModule.forModule(javaBase);
 
-        public LoadedModule loadModule(final String moduleName) {
-            if (moduleName.equals("java.base")) {
-                return loadedJavaBase;
-            } else {
-                return super.loadModule(moduleName);
-            }
-        }
-    };
-
+    /**
+     * A module loader which loads from the JDK boot module layer.
+     */
     public static final ModuleLoader BOOT = forLayer("boot", ModuleLayer.boot());
 
+    /**
+     * Create a new module loader instance that loads modules from the given JDK module layer.
+     *
+     * @param name the name of the module loader to create (must not be {@code null})
+     * @param layer the module layer (must not be {@code null})
+     * @return the module loader (not {@code null})
+     */
     public static ModuleLoader forLayer(String name, ModuleLayer layer) {
         return new ModuleLoader(name, ModuleFinder.EMPTY) {
             public LoadedModule loadModule(final String moduleName) {
@@ -249,18 +274,38 @@ public class ModuleLoader implements Closeable {
         };
     }
 
+    /**
+     * {@return the module loader for the given class loader, or {@code null} if there is none}
+     *
+     * @param cl the class loader
+     */
     public static ModuleLoader ofClassLoader(ClassLoader cl) {
         return cl instanceof ModuleClassLoader mcl ? mcl.moduleLoader() : null;
     }
 
+    /**
+     * {@return the module loader of the given JDK module, or {@code null} if there is none}
+     *
+     * @param module the module (must not be {@code null})
+     */
     public static ModuleLoader ofModule(Module module) {
         return ofClassLoader(module.getClassLoader());
     }
 
+    /**
+     * {@return the module loader of the given class, or {@code null} if there is none}
+     *
+     * @param clazz the class (must not be {@code null})
+     */
     public static ModuleLoader ofClass(Class<?> clazz) {
         return ofClassLoader(clazz.getClassLoader());
     }
 
+    /**
+     * {@return the module loader of the thread's context class loader, or {@code null} if there is none}
+     *
+     * @param thread the thread (must not be {@code null})
+     */
     public static ModuleLoader ofThread(Thread thread) {
         return ofClassLoader(thread.getContextClassLoader());
     }

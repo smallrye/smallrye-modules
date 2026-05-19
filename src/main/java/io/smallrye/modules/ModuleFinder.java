@@ -13,8 +13,6 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 
-import javax.xml.stream.XMLStreamException;
-
 import io.smallrye.common.resource.Resource;
 import io.smallrye.common.resource.ResourceLoader;
 import io.smallrye.modules.desc.ModuleDescriptor;
@@ -45,9 +43,6 @@ public interface ModuleFinder extends Closeable {
         return new ModuleFinder() {
 
             public FoundModule findModule(final String name) {
-                interface XMLCloser extends AutoCloseable {
-                    void close() throws XMLStreamException;
-                }
                 for (Path realPath : paths) {
                     realPath = realPath.resolve(name);
                     if (!Files.isDirectory(realPath)) {

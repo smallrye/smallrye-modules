@@ -92,7 +92,7 @@ abstract class DefinedModule {
                         }
                     }
                 } catch (Exception t) {
-                    moduleLoader.replace(this, new Failed(t));
+                    moduleLoader.replace(this, this.result = new Failed(t));
                     throw t;
                 } finally {
                     lock.unlock();

@@ -51,7 +51,6 @@ import io.smallrye.common.resource.Resource;
 import io.smallrye.common.resource.ResourceLoader;
 import io.smallrye.common.resource.ResourceUtils;
 import io.smallrye.modules.desc.Dependency;
-import io.smallrye.modules.desc.Modifiers;
 import io.smallrye.modules.desc.ModuleDescriptor;
 import io.smallrye.modules.desc.PackageAccess;
 import io.smallrye.modules.desc.PackageInfo;
@@ -178,6 +177,10 @@ public class ModuleClassLoader extends ClassLoader {
 
     private static final String archName = OS.current().name().toLowerCase(Locale.ROOT) + "-" + CPU.host().name();
 
+    /**
+     * {@inheritDoc}
+     * Searches the module's resource loaders for a native library with the given name.
+     */
     protected String findLibrary(String libName) {
         for (ResourceLoader loader : linkDefined().resourceLoaders()) {
             Resource resource;
@@ -196,11 +199,17 @@ public class ModuleClassLoader extends ClassLoader {
         return null;
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public final Class<?> loadClass(final String name) throws ClassNotFoundException {
         return loadClass(name, false);
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     protected final Class<?> loadClass(final String name, final boolean resolve) throws ClassNotFoundException {
         if (name.startsWith("[")) {
@@ -259,6 +268,12 @@ public class ModuleClassLoader extends ClassLoader {
         return loaded;
     }
 
+    /**
+     * Get a resource from this module that is exported to the caller.
+     *
+     * @param name the resource name (must not be {@code null})
+     * @return the resource, or {@code null} if not found or not accessible
+     */
     public final Resource getExportedResource(final String name) {
         try {
             return getExportedResource(name, stackWalker.walk(callerFinder));
@@ -267,6 +282,9 @@ public class ModuleClassLoader extends ClassLoader {
         }
     }
 
+    /**
+     * {@inheritDoc}
+     */
     public final URL getResource(final String name) {
         Resource resource;
         try {
@@ -277,6 +295,9 @@ public class ModuleClassLoader extends ClassLoader {
         return resource == null ? null : resource.url();
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public final InputStream getResourceAsStream(final String name) {
         Resource resource;
@@ -288,10 +309,20 @@ public class ModuleClassLoader extends ClassLoader {
         }
     }
 
+    /**
+     * Get all resources with the given name from this module that are exported to the caller.
+     *
+     * @param name the resource name (must not be {@code null})
+     * @return the list of accessible resources (not {@code null})
+     * @throws IOException if an I/O error occurs
+     */
     public final List<Resource> getExportedResources(final String name) throws IOException {
         return getExportedResources(name, stackWalker.walk(callerFinder));
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public final Enumeration<URL> getResources(final String name) throws IOException {
         // todo: filter to exportable resources?
@@ -308,6 +339,9 @@ public class ModuleClassLoader extends ClassLoader {
         };
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public final Stream<URL> resources(final String name) {
         // todo: filter to exportable resources?
@@ -318,6 +352,9 @@ public class ModuleClassLoader extends ClassLoader {
         }
     }
 
+    /**
+     * {@return the set of exported package names for this module}
+     */
     public final Set<String> exportedPackages() {
         throw new UnsupportedOperationException("Not supported yet.");
     }
@@ -331,6 +368,8 @@ public class ModuleClassLoader extends ClassLoader {
 
     /**
      * {@return the module class loader of the given module, or {@code null} if it does not have one}
+     *
+     * @param module the module to examine (must not be {@code null})
      */
     public static ModuleClassLoader ofModule(Module module) {
         return module.getClassLoader() instanceof ModuleClassLoader mcl ? mcl : null;
@@ -338,6 +377,8 @@ public class ModuleClassLoader extends ClassLoader {
 
     /**
      * {@return the module class loader of the given thread, or {@code null} if it does not have one}
+     *
+     * @param thread the thread to examine (must not be {@code null})
      */
     public static ModuleClassLoader ofThread(Thread thread) {
         return thread.getContextClassLoader() instanceof ModuleClassLoader mcl ? mcl : null;
@@ -652,7 +693,7 @@ public class ModuleClassLoader extends ClassLoader {
     }
 
     private static Set<java.lang.module.ModuleDescriptor.Modifier> toJlmModifiers(
-            Modifiers<ModuleDescriptor.Modifier> modifiers) {
+            ModuleDescriptor.Modifier.Set modifiers) {
         if (modifiers.contains(ModuleDescriptor.Modifier.AUTOMATIC)) {
             return Set.of(java.lang.module.ModuleDescriptor.Modifier.AUTOMATIC);
         } else if (modifiers.contains(ModuleDescriptor.Modifier.OPEN)) {
@@ -986,7 +1027,7 @@ public class ModuleClassLoader extends ClassLoader {
         }
     }
 
-    private int flagsOfModule(Modifiers<ModuleDescriptor.Modifier> mods) {
+    private int flagsOfModule(ModuleDescriptor.Modifier.Set mods) {
         int mask = AccessFlag.MODULE.mask();
         if (mods.contains(ModuleDescriptor.Modifier.OPEN)) {
             mask |= AccessFlag.OPEN.mask();
@@ -1248,7 +1289,7 @@ public class ModuleClassLoader extends ClassLoader {
             return resourceLoaders;
         }
 
-        public ModuleDescriptor descriptor() {
+        ModuleDescriptor descriptor() {
             return descriptor;
         }
     }

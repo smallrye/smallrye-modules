@@ -33,10 +33,18 @@ import io.smallrye.modules.impl.Util;
 public final class Launcher implements Runnable {
     private final Configuration configuration;
 
+    /**
+     * Construct a new instance.
+     *
+     * @param configuration the launcher configuration (must not be {@code null})
+     */
     public Launcher(Configuration configuration) {
         this.configuration = Assert.checkNotNullParam("configuration", configuration);
     }
 
+    /**
+     * Run the launcher, loading the configured module and invoking its main class.
+     */
     public void run() {
         ModuleLoader parent = ModuleLoader.ofClass(Launcher.class);
         if (parent == null) {
@@ -355,14 +363,36 @@ public final class Launcher implements Runnable {
         }
     }
 
+    /**
+     * The launch mode for the launcher.
+     */
     public enum Mode {
+        /**
+         * Launch a named module.
+         */
         MODULE,
+        /**
+         * Launch a modular JAR file.
+         */
         JAR,
     }
 
+    /**
+     * The configuration for a {@link Launcher} instance.
+     *
+     * @param launchName the name of the module or JAR to launch (must not be {@code null})
+     * @param launchMode the launch mode (must not be {@code null})
+     * @param infoOnly {@code true} to print module info instead of running
+     * @param modulePath the list of module path roots (must not be {@code null})
+     * @param arguments the command-line arguments to pass to the main class (must not be {@code null})
+     * @param accesses extra package accesses to apply (must not be {@code null})
+     */
     public record Configuration(String launchName, Mode launchMode, boolean infoOnly, List<Path> modulePath,
             List<String> arguments,
             Map<String, Map<String, PackageAccess>> accesses) {
+        /**
+         * Construct a new instance.
+         */
         public Configuration {
             Assert.checkNotNullParam("launchName", launchName);
             Assert.checkNotNullParam("launchMode", launchMode);

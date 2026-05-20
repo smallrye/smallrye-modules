@@ -1,4 +1,6 @@
-
+/**
+ * A dynamic modular class loading environment.
+ */
 module io.smallrye.modules {
     requires transitive java.xml;
     requires java.logging;

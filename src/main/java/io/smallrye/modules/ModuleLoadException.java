@@ -3,7 +3,7 @@ package io.smallrye.modules;
 import java.io.Serial;
 
 /**
- *
+ * An exception indicating a problem during a module load.
  */
 public class ModuleLoadException extends RuntimeException {
     @Serial

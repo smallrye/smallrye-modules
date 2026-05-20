@@ -35,18 +35,38 @@ public interface ResourceLoaderOpener {
         return () -> loader;
     }
 
+    /**
+     * {@return an opener that creates a path-based resource loader for the given directory}
+     *
+     * @param path the directory path (must not be {@code null})
+     */
     static ResourceLoaderOpener forDirectory(Path path) {
         return () -> new PathResourceLoader(path);
     }
 
+    /**
+     * {@return an opener that creates a JAR file resource loader for the given path}
+     *
+     * @param jarPath the JAR file path (must not be {@code null})
+     */
     static ResourceLoaderOpener forJarFile(Path jarPath) {
         return () -> new JarFileResourceLoader(jarPath);
     }
 
+    /**
+     * {@return an opener that creates a JAR file resource loader for the given resource}
+     *
+     * @param jarResource the JAR file resource (must not be {@code null})
+     */
     static ResourceLoaderOpener forJarResource(Resource jarResource) {
         return () -> new JarFileResourceLoader(jarResource);
     }
 
+    /**
+     * {@return an opener that creates a URL-based resource loader for the given URL}
+     *
+     * @param url the URL (must not be {@code null})
+     */
     static ResourceLoaderOpener forURL(URL url) {
         return () -> new URLResourceLoader(url);
     }

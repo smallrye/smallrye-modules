@@ -62,6 +62,12 @@ public final class LoadedModule {
         }
     }
 
+    /**
+     * Perform the given action for each package that is exported to the given module.
+     *
+     * @param toModule the target module (must not be {@code null})
+     * @param action the action to perform for each exported package name (must not be {@code null})
+     */
     public void forEachExportedPackage(Module toModule, Consumer<String> action) {
         if (module != null) {
             module.getPackages().stream().filter(pn -> module.isExported(pn, toModule)).forEach(action);
@@ -81,18 +87,34 @@ public final class LoadedModule {
         }
     }
 
+    /**
+     * {@return {@code true} if the given object is a {@code LoadedModule} representing the same module}
+     *
+     * @param obj the object to compare (may be {@code null})
+     */
     public boolean equals(final Object obj) {
         return obj instanceof LoadedModule lm && equals(lm);
     }
 
+    /**
+     * {@return {@code true} if this loaded module represents the same module as the given one}
+     *
+     * @param other the other loaded module (may be {@code null})
+     */
     public boolean equals(LoadedModule other) {
         return other != null && module == other.module && moduleClassLoader == other.moduleClassLoader;
     }
 
+    /**
+     * {@return the hash code of this loaded module}
+     */
     public int hashCode() {
         return Objects.hash(module, moduleClassLoader);
     }
 
+    /**
+     * {@return a string representation of this loaded module}
+     */
     public String toString() {
         return module != null ? module.toString() : "module⁺ " + moduleClassLoader.moduleName();
     }

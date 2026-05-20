@@ -21,8 +21,19 @@ import io.smallrye.modules.desc.ModuleDescriptor;
  * A module definition finder.
  */
 public interface ModuleFinder extends Closeable {
+    /**
+     * Find a module with the given name.
+     *
+     * @param name the module name (must not be {@code null})
+     * @return the found module, or {@code null} if the module is not found by this finder
+     */
     FoundModule findModule(String name);
 
+    /**
+     * {@return a module finder that first searches this finder, and then the given finder if no module is found}
+     *
+     * @param other the fallback finder (must not be {@code null})
+     */
     default ModuleFinder andThen(ModuleFinder other) {
         if (this == EMPTY) {
             return other;
@@ -33,11 +44,24 @@ public interface ModuleFinder extends Closeable {
         };
     }
 
+    /**
+     * Close any resources held by this finder.
+     */
     default void close() {
     }
 
+    /**
+     * An empty module finder that never finds any modules.
+     */
     ModuleFinder EMPTY = __ -> null;
 
+    /**
+     * Create a module finder that searches for modules in the given filesystem directories.
+     * Each directory is expected to contain subdirectories named after modules.
+     *
+     * @param roots the filesystem roots to search (must not be {@code null})
+     * @return the module finder (not {@code null})
+     */
     static ModuleFinder fromFileSystem(List<Path> roots) {
         List<Path> paths = List.copyOf(roots);
         return new ModuleFinder() {

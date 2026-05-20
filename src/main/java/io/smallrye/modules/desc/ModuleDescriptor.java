@@ -5,6 +5,9 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.Reader;
+import java.lang.invoke.ConstantBootstraps;
+import java.lang.invoke.MethodHandles;
+import java.lang.invoke.VarHandle;
 import java.lang.module.FindException;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
@@ -12,6 +15,7 @@ import java.nio.file.DirectoryStream;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -22,7 +26,6 @@ import java.util.function.BiFunction;
 import java.util.jar.Attributes.Name;
 import java.util.jar.Manifest;
 import java.util.stream.Collectors;
-import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
 import javax.xml.stream.XMLInputFactory;
@@ -55,12 +58,22 @@ import io.smallrye.modules.impl.Util;
 
 /**
  * A descriptor for initially defining a module.
+ *
+ * @param name the name of the module being described (must not be {@code null})
+ * @param version the optional version of the module being described (must not be {@code null})
+ * @param modifiers the modifiers of the module being described (must not be {@code null})
+ * @param mainClass the optional main class of the module being described (must not be {@code null})
+ * @param location the optional URI base location of the module being described (must not be {@code null})
+ * @param dependencies the dependencies of the module being described (must not be {@code null})
+ * @param uses the set of service type names used by the module being described (must not be {@code null})
+ * @param provides the services being provided by the module being described (must not be {@code null})
+ * @param packages the packages of the module being described (must not be {@code null})
  */
 // todo: write XML, read/write binary
 public record ModuleDescriptor(
         String name,
         Optional<String> version,
-        Modifiers<Modifier> modifiers,
+        Modifier.Set modifiers,
         Optional<String> mainClass,
         Optional<URI> location,
         List<Dependency> dependencies,
@@ -316,38 +329,137 @@ public record ModuleDescriptor(
         UNNAMED,
         ;
 
+        /**
+         * The list of all possible modifiers in {@link #ordinal()} order.
+         */
         public static final List<Modifier> values = List.of(values());
 
-        private static final List<Modifiers<Modifier>> sets = List.copyOf(IntStream.range(0, 16)
-                .mapToObj(bits -> new Modifiers<Modifier>(values, Modifier::forBits, bits))
-                .toList());
+        /**
+         * A set of modifiers.
+         */
+        public static final class Set extends Modifiers<Modifier> {
+            private static final VarHandle setsHandle = ConstantBootstraps.arrayVarHandle(MethodHandles.lookup(), "_",
+                    VarHandle.class, Set[].class);
+            private static final Set[] sets = new Set[1 << values.size()];
 
-        public static Modifiers<Modifier> set() {
-            return sets.get(0);
-        }
+            Set(final int flags) {
+                super(flags);
+            }
 
-        public static Modifiers<Modifier> set(Modifier modifier) {
-            return sets.get(bit(modifier));
-        }
+            /**
+             * {@return the empty set of modifiers}
+             */
+            public static Set of() {
+                return getSet(0);
+            }
 
-        public static Modifiers<Modifier> set(Modifier modifier0, Modifier modifier1) {
-            return sets.get(bit(modifier0) | bit(modifier1));
-        }
+            /**
+             * {@return the set of one modifier}
+             *
+             * @param modifier the modifier
+             */
+            public static Set of(Modifier modifier) {
+                return getSet(bit(modifier));
+            }
 
-        public static Modifiers<Modifier> set(Modifier modifier0, Modifier modifier1, Modifier modifier2) {
-            return sets.get(bit(modifier0) | bit(modifier1) | bit(modifier2));
-        }
+            /**
+             * {@return the set of two modifiers}
+             *
+             * @param modifier0 the first modifier
+             * @param modifier1 the second modifier
+             */
+            public static Set of(Modifier modifier0, Modifier modifier1) {
+                return getSet(bit(modifier0) | bit(modifier1));
+            }
 
-        public static Modifiers<Modifier> set(Modifier modifier0, Modifier modifier1, Modifier modifier2, Modifier modifier3) {
-            return sets.get(bit(modifier0) | bit(modifier1) | bit(modifier2) | bit(modifier3));
-        }
+            /**
+             * {@return the set of three modifiers}
+             *
+             * @param modifier0 the first modifier
+             * @param modifier1 the second modifier
+             * @param modifier2 the third modifier
+             */
+            public static Set of(Modifier modifier0, Modifier modifier1, Modifier modifier2) {
+                return getSet(bit(modifier0) | bit(modifier1) | bit(modifier2));
+            }
 
-        private static int bit(final Modifier item) {
-            return item == null ? 0 : 1 << item.ordinal();
-        }
+            /**
+             * {@return the set of four modifiers}
+             *
+             * @param modifier0 the first modifier
+             * @param modifier1 the second modifier
+             * @param modifier2 the third modifier
+             * @param modifier3 the fourth modifier
+             */
+            public static Set of(Modifier modifier0, Modifier modifier1, Modifier modifier2, Modifier modifier3) {
+                return getSet(bit(modifier0) | bit(modifier1) | bit(modifier2) | bit(modifier3));
+            }
 
-        private static Modifiers<Modifier> forBits(int bits) {
-            return sets.get(bits);
+            /**
+             * {@return the set of all modifiers}
+             */
+            public static Set ofAll() {
+                return getSet(sets.length - 1);
+            }
+
+            public Set with(final Modifier item) {
+                return setOf(flags | bit(item));
+            }
+
+            public Set withAll(final Modifier item0, final Modifier item1) {
+                return setOf(flags | bit(item0) | bit(item1));
+            }
+
+            /**
+             * {@return a modifier set that includes the given modifier set in addition to the modifiers in this set}
+             *
+             * @param other the modifier set to add
+             */
+            public Set withAll(final Set other) {
+                return setOf(flags | other.flags);
+            }
+
+            public Set without(final Modifier item) {
+                return setOf(flags & ~bit(item));
+            }
+
+            public Set xor(final Modifier item) {
+                return setOf(flags ^ bit(item));
+            }
+
+            public boolean contains(final Object o) {
+                return o instanceof Modifier m && contains(m);
+            }
+
+            public Iterator<Modifier> iterator() {
+                return new Biterator<>(flags, values);
+            }
+
+            Modifier value(final int index) {
+                return values.get(index);
+            }
+
+            Set setOf(final int flags) {
+                return this.flags == flags ? this : getSet(flags);
+            }
+
+            static int bit(final Modifier item) {
+                return item == null ? 0 : 1 << item.ordinal();
+            }
+
+            private static Set getSet(int setNum) {
+                Set[] sets = Set.sets;
+                Set set = (Set) setsHandle.getAcquire(sets, setNum);
+                if (set == null) {
+                    set = new Set(setNum);
+                    Set witness = (Set) setsHandle.compareAndExchangeRelease(sets, setNum, (Set) null, set);
+                    if (witness != null) {
+                        set = witness;
+                    }
+                }
+                return set;
+            }
+
         }
     }
 
@@ -358,6 +470,7 @@ public record ModuleDescriptor(
      * @param resourceLoaders the loaders from which packages may be discovered if not given in the descriptor (must not be
      *        {@code null})
      * @return the module descriptor (not {@code null})
+     * @throws IOException if the descriptor cannot be read
      */
     public static ModuleDescriptor fromModuleInfo(
             Resource moduleInfo,
@@ -373,6 +486,7 @@ public record ModuleDescriptor(
      *        {@code null})
      * @param extraAccesses extra package accesses to merge into dependencies (must not be {@code null})
      * @return the module descriptor (not {@code null})
+     * @throws IOException if the descriptor cannot be read
      */
     public static ModuleDescriptor fromModuleInfo(
             Resource moduleInfo,
@@ -390,7 +504,7 @@ public record ModuleDescriptor(
         Optional<ModulePackagesAttribute> mpa = classModel.findAttribute(Attributes.modulePackages());
         Optional<ModuleMainClassAttribute> mca = classModel.findAttribute(Attributes.moduleMainClass());
         Optional<RuntimeInvisibleAnnotationsAttribute> ria = classModel.findAttribute(Attributes.runtimeInvisibleAnnotations());
-        Modifiers<ModuleDescriptor.Modifier> mods = ModuleDescriptor.Modifier.set();
+        Modifier.Set mods = Modifier.Set.of();
         boolean open = classModel.flags().has(AccessFlag.OPEN);
         if (open) {
             mods = mods.with(Modifier.OPEN);
@@ -580,7 +694,7 @@ public record ModuleDescriptor(
             iter.skipWhiteSpace();
             while (iter.hasNext()) {
                 String depName = dotName(iter);
-                Modifiers<Dependency.Modifier> mods = Dependency.Modifier.set(Dependency.Modifier.SERVICES);
+                Dependency.Modifier.Set mods = Dependency.Modifier.Set.of(Dependency.Modifier.SERVICES);
                 iter.skipWhiteSpace();
                 while (iter.hasNext()) {
                     if (iter.peekNext() == ',') {
@@ -620,7 +734,7 @@ public record ModuleDescriptor(
         if (moduleName == null || moduleName.isEmpty()) {
             throw new FindException("A valid module name is required");
         }
-        Modifiers<Modifier> mods = Modifier.set(Modifier.AUTOMATIC);
+        Modifier.Set mods = Modifier.Set.of(Modifier.AUTOMATIC);
         if (enableNativeAccess) {
             mods = mods.with(Modifier.NATIVE_ACCESS);
         }
@@ -777,7 +891,7 @@ public record ModuleDescriptor(
     private static ModuleDescriptor parseModuleElement(final XMLStreamReader xml) throws XMLStreamException {
         String name = null;
         Optional<String> version = Optional.empty();
-        Modifiers<Modifier> mods = Modifier.set();
+        Modifier.Set mods = Modifier.Set.of();
         Optional<String> mainClass = Optional.empty();
         List<Dependency> dependencies = List.of();
         Set<String> uses = Set.of();
@@ -866,7 +980,7 @@ public record ModuleDescriptor(
 
     private static Dependency parseDependencyElement(final XMLStreamReader xml) throws XMLStreamException {
         String name = null;
-        Modifiers<Dependency.Modifier> modifiers = Dependency.Modifier.set(Dependency.Modifier.SERVICES,
+        Dependency.Modifier.Set modifiers = Dependency.Modifier.Set.of(Dependency.Modifier.SERVICES,
                 Dependency.Modifier.LINKED, Dependency.Modifier.READ);
         Map<String, PackageAccess> packageAccesses = Map.of();
         int cnt = xml.getAttributeCount();
@@ -1239,8 +1353,8 @@ public record ModuleDescriptor(
         return name;
     }
 
-    private static Modifiers<Dependency.Modifier> toModifiers(final Set<AccessFlag> accessFlags) {
-        Modifiers<Dependency.Modifier> mods = Dependency.Modifier.set(Dependency.Modifier.SERVICES);
+    private static Dependency.Modifier.Set toModifiers(final Set<AccessFlag> accessFlags) {
+        Dependency.Modifier.Set mods = Dependency.Modifier.Set.of(Dependency.Modifier.SERVICES);
         for (AccessFlag accessFlag : accessFlags) {
             switch (accessFlag) {
                 case STATIC_PHASE -> mods = mods.with(Dependency.Modifier.OPTIONAL);

@@ -1,9 +1,12 @@
 package io.smallrye.modules.desc;
 
+import java.lang.invoke.ConstantBootstraps;
+import java.lang.invoke.MethodHandles;
+import java.lang.invoke.VarHandle;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.stream.IntStream;
 
 import io.smallrye.common.constraint.Assert;
 import io.smallrye.modules.ModuleLoader;
@@ -20,7 +23,7 @@ import io.smallrye.modules.impl.Util;
  */
 public record Dependency(
         String moduleName,
-        Modifiers<Modifier> modifiers,
+        Modifier.Set modifiers,
         Optional<ModuleLoader> moduleLoader,
         Map<String, PackageAccess> packageAccesses) {
     /**
@@ -40,7 +43,7 @@ public record Dependency(
      * @param modifiers the dependency modifiers (must not be {@code null})
      * @param moduleLoader the optional module loader to use for this dependency (must not be {@code null})
      */
-    public Dependency(String moduleName, Modifiers<Modifier> modifiers, Optional<ModuleLoader> moduleLoader) {
+    public Dependency(String moduleName, Modifier.Set modifiers, Optional<ModuleLoader> moduleLoader) {
         this(moduleName, modifiers, moduleLoader, Map.of());
     }
 
@@ -50,7 +53,7 @@ public record Dependency(
      * @param moduleName the dependency name (must not be {@code null})
      */
     public Dependency(String moduleName) {
-        this(moduleName, Modifier.set(), Optional.empty());
+        this(moduleName, Modifier.Set.of(), Optional.empty());
     }
 
     /**
@@ -60,7 +63,7 @@ public record Dependency(
      * @param modifier the modifier to add (must not be {@code null})
      */
     public Dependency(String moduleName, Modifier modifier) {
-        this(moduleName, Modifier.set(modifier), Optional.empty());
+        this(moduleName, Modifier.Set.of(modifier), Optional.empty());
     }
 
     /**
@@ -212,61 +215,190 @@ public record Dependency(
         SERVICES,
         ;
 
+        /**
+         * The list of all possible modifiers in {@link #ordinal()} order.
+         */
         public static final List<Modifier> values = List.of(values());
 
-        private static final List<Modifiers<Modifier>> sets = List.copyOf(IntStream.range(0, 128)
-                .mapToObj(bits -> new Modifiers<Modifier>(values, Modifier::forBits, bits))
-                .toList());
+        /**
+         * A set of modifiers.
+         */
+        public static final class Set extends Modifiers<Modifier> {
+            private static final VarHandle setsHandle = ConstantBootstraps.arrayVarHandle(MethodHandles.lookup(), "_",
+                    VarHandle.class, Set[].class);
+            private static final Set[] sets = new Set[1 << values.size()];
 
-        public static Modifiers<Modifier> set() {
-            return sets.get(0);
-        }
+            Set(final int flags) {
+                super(flags);
+            }
 
-        public static Modifiers<Modifier> set(Modifier modifier) {
-            return sets.get(bit(modifier));
-        }
+            /**
+             * {@return the empty set of modifiers}
+             */
+            public static Set of() {
+                return getSet(0);
+            }
 
-        public static Modifiers<Modifier> set(Modifier modifier0, Modifier modifier1) {
-            return sets.get(bit(modifier0) | bit(modifier1));
-        }
+            /**
+             * {@return the set of one modifier}
+             *
+             * @param modifier the modifier
+             */
+            public static Set of(Modifier modifier) {
+                return getSet(bit(modifier));
+            }
 
-        public static Modifiers<Modifier> set(Modifier modifier0, Modifier modifier1, Modifier modifier2) {
-            return sets.get(bit(modifier0) | bit(modifier1) | bit(modifier2));
-        }
+            /**
+             * {@return the set of two modifiers}
+             *
+             * @param modifier0 the first modifier
+             * @param modifier1 the second modifier
+             */
+            public static Set of(Modifier modifier0, Modifier modifier1) {
+                return getSet(bit(modifier0) | bit(modifier1));
+            }
 
-        public static Modifiers<Modifier> set(Modifier modifier0, Modifier modifier1, Modifier modifier2, Modifier modifier3) {
-            return sets.get(bit(modifier0) | bit(modifier1) | bit(modifier2) | bit(modifier3));
-        }
+            /**
+             * {@return the set of three modifiers}
+             *
+             * @param modifier0 the first modifier
+             * @param modifier1 the second modifier
+             * @param modifier2 the third modifier
+             */
+            public static Set of(Modifier modifier0, Modifier modifier1, Modifier modifier2) {
+                return getSet(bit(modifier0) | bit(modifier1) | bit(modifier2));
+            }
 
-        public static Modifiers<Modifier> set(Modifier modifier0, Modifier modifier1, Modifier modifier2, Modifier modifier3,
-                Modifier modifier4) {
-            return sets.get(bit(modifier0) | bit(modifier1) | bit(modifier2) | bit(modifier3) | bit(modifier4));
-        }
+            /**
+             * {@return the set of four modifiers}
+             *
+             * @param modifier0 the first modifier
+             * @param modifier1 the second modifier
+             * @param modifier2 the third modifier
+             * @param modifier3 the fourth modifier
+             */
+            public static Set of(Modifier modifier0, Modifier modifier1, Modifier modifier2, Modifier modifier3) {
+                return getSet(bit(modifier0) | bit(modifier1) | bit(modifier2) | bit(modifier3));
+            }
 
-        public static Modifiers<Modifier> set(Modifier modifier0, Modifier modifier1, Modifier modifier2, Modifier modifier3,
-                Modifier modifier4, Modifier modifier5) {
-            return sets
-                    .get(bit(modifier0) | bit(modifier1) | bit(modifier2) | bit(modifier3) | bit(modifier4) | bit(modifier5));
-        }
+            /**
+             * {@return the set of five modifiers}
+             *
+             * @param modifier0 the first modifier
+             * @param modifier1 the second modifier
+             * @param modifier2 the third modifier
+             * @param modifier3 the fourth modifier
+             * @param modifier4 the fifth modifier
+             */
+            public static Set of(Modifier modifier0, Modifier modifier1, Modifier modifier2, Modifier modifier3,
+                    Modifier modifier4) {
+                return getSet(bit(modifier0) | bit(modifier1) | bit(modifier2) | bit(modifier3) | bit(modifier4));
+            }
 
-        public static Modifiers<Modifier> set(Modifier modifier0, Modifier modifier1, Modifier modifier2, Modifier modifier3,
-                Modifier modifier4, Modifier modifier5, Modifier modifier6) {
-            return sets.get(bit(modifier0) | bit(modifier1) | bit(modifier2) | bit(modifier3) | bit(modifier4) | bit(modifier5)
-                    | bit(modifier6));
-        }
+            /**
+             * {@return the set of six modifiers}
+             *
+             * @param modifier0 the first modifier
+             * @param modifier1 the second modifier
+             * @param modifier2 the third modifier
+             * @param modifier3 the fourth modifier
+             * @param modifier4 the fifth modifier
+             * @param modifier5 the sixth modifier
+             */
+            public static Set of(Modifier modifier0, Modifier modifier1, Modifier modifier2, Modifier modifier3,
+                    Modifier modifier4, Modifier modifier5) {
+                return getSet(bit(modifier0) | bit(modifier1) | bit(modifier2) | bit(modifier3) | bit(modifier4)
+                        | bit(modifier5));
+            }
 
-        private static int bit(final Modifier item) {
-            return item == null ? 0 : 1 << item.ordinal();
-        }
+            /**
+             * {@return the set of seven modifiers}
+             *
+             * @param modifier0 the first modifier
+             * @param modifier1 the second modifier
+             * @param modifier2 the third modifier
+             * @param modifier3 the fourth modifier
+             * @param modifier4 the fifth modifier
+             * @param modifier5 the sixth modifier
+             * @param modifier6 the seventh modifier
+             */
+            public static Set of(Modifier modifier0, Modifier modifier1, Modifier modifier2, Modifier modifier3,
+                    Modifier modifier4, Modifier modifier5, Modifier modifier6) {
+                return getSet(bit(modifier0) | bit(modifier1) | bit(modifier2) | bit(modifier3) | bit(modifier4)
+                        | bit(modifier5) | bit(modifier6));
+            }
 
-        private static Modifiers<Modifier> forBits(int bits) {
-            return sets.get(bits);
+            /**
+             * {@return the set of all modifiers}
+             */
+            public static Set ofAll() {
+                return getSet(sets.length - 1);
+            }
+
+            public Set with(final Modifier item) {
+                return setOf(flags | bit(item));
+            }
+
+            public Set withAll(final Modifier item0, final Modifier item1) {
+                return setOf(flags | bit(item0) | bit(item1));
+            }
+
+            /**
+             * {@return a modifier set that includes the given modifier set in addition to the modifiers in this set}
+             *
+             * @param other the modifier set to add
+             */
+            public Set withAll(final Set other) {
+                return setOf(flags | other.flags);
+            }
+
+            public Set without(final Modifier item) {
+                return setOf(flags & ~bit(item));
+            }
+
+            public Set xor(final Modifier item) {
+                return setOf(flags ^ bit(item));
+            }
+
+            public Iterator<Modifier> iterator() {
+                return new Biterator<>(flags, values);
+            }
+
+            public boolean contains(final Object o) {
+                return o instanceof Modifier m && contains(m);
+            }
+
+            Modifier value(final int index) {
+                return values.get(index);
+            }
+
+            Set setOf(final int flags) {
+                return this.flags == flags ? this : getSet(flags);
+            }
+
+            static int bit(final Modifier item) {
+                return item == null ? 0 : 1 << item.ordinal();
+            }
+
+            private static Set getSet(int setNum) {
+                Set[] sets = Set.sets;
+                Set set = (Set) setsHandle.getAcquire(sets, setNum);
+                if (set == null) {
+                    set = new Set(setNum);
+                    Set witness = (Set) setsHandle.compareAndExchangeRelease(sets, setNum, (Set) null, set);
+                    if (witness != null) {
+                        set = witness;
+                    }
+                }
+                return set;
+            }
         }
     }
 
     /**
      * The standard {@code java.base} dependency, for convenience.
      */
-    public static final Dependency JAVA_BASE = new Dependency("java.base", Modifier.set(Modifier.SYNTHETIC, Modifier.MANDATED),
+    public static final Dependency JAVA_BASE = new Dependency("java.base",
+            Modifier.Set.of(Modifier.SYNTHETIC, Modifier.MANDATED),
             Optional.empty(), Map.of());
 }

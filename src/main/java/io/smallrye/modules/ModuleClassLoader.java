@@ -51,7 +51,6 @@ import io.smallrye.common.resource.Resource;
 import io.smallrye.common.resource.ResourceLoader;
 import io.smallrye.common.resource.ResourceUtils;
 import io.smallrye.modules.desc.Dependency;
-import io.smallrye.modules.desc.Modifiers;
 import io.smallrye.modules.desc.ModuleDescriptor;
 import io.smallrye.modules.desc.PackageAccess;
 import io.smallrye.modules.desc.PackageInfo;
@@ -369,6 +368,8 @@ public class ModuleClassLoader extends ClassLoader {
 
     /**
      * {@return the module class loader of the given module, or {@code null} if it does not have one}
+     *
+     * @param module the module to examine (must not be {@code null})
      */
     public static ModuleClassLoader ofModule(Module module) {
         return module.getClassLoader() instanceof ModuleClassLoader mcl ? mcl : null;
@@ -376,6 +377,8 @@ public class ModuleClassLoader extends ClassLoader {
 
     /**
      * {@return the module class loader of the given thread, or {@code null} if it does not have one}
+     *
+     * @param thread the thread to examine (must not be {@code null})
      */
     public static ModuleClassLoader ofThread(Thread thread) {
         return thread.getContextClassLoader() instanceof ModuleClassLoader mcl ? mcl : null;
@@ -690,7 +693,7 @@ public class ModuleClassLoader extends ClassLoader {
     }
 
     private static Set<java.lang.module.ModuleDescriptor.Modifier> toJlmModifiers(
-            Modifiers<ModuleDescriptor.Modifier> modifiers) {
+            ModuleDescriptor.Modifier.Set modifiers) {
         if (modifiers.contains(ModuleDescriptor.Modifier.AUTOMATIC)) {
             return Set.of(java.lang.module.ModuleDescriptor.Modifier.AUTOMATIC);
         } else if (modifiers.contains(ModuleDescriptor.Modifier.OPEN)) {
@@ -1024,7 +1027,7 @@ public class ModuleClassLoader extends ClassLoader {
         }
     }
 
-    private int flagsOfModule(Modifiers<ModuleDescriptor.Modifier> mods) {
+    private int flagsOfModule(ModuleDescriptor.Modifier.Set mods) {
         int mask = AccessFlag.MODULE.mask();
         if (mods.contains(ModuleDescriptor.Modifier.OPEN)) {
             mask |= AccessFlag.OPEN.mask();

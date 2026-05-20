@@ -32,7 +32,7 @@ public final class BasicTests {
                 return name.equals("hello") ? new FoundModule(List.of(), (moduleName, loaders) -> new ModuleDescriptor(
                         "hello",
                         Optional.of("1.2.3"),
-                        ModuleDescriptor.Modifier.set(),
+                        ModuleDescriptor.Modifier.Set.of(),
                         Optional.of("test.foobar.Main"),
                         Optional.empty(),
                         List.of(Dependency.JAVA_BASE),

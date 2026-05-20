@@ -14,7 +14,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import io.smallrye.common.resource.Resource;
 import io.smallrye.common.resource.ResourceLoader;
 import io.smallrye.modules.desc.Dependency;
-import io.smallrye.modules.desc.Modifiers;
 import io.smallrye.modules.desc.ModuleDescriptor;
 import io.smallrye.modules.desc.PackageInfo;
 import io.smallrye.modules.impl.Access;
@@ -43,14 +42,14 @@ abstract class LinkState {
         private final List<Dependency> dependencies;
         private final List<ResourceLoader> resourceLoaders;
         private final Map<String, PackageInfo> packages;
-        private final Modifiers<ModuleDescriptor.Modifier> modifiers;
+        private final ModuleDescriptor.Modifier.Set modifiers;
         private final Set<String> uses;
         private final Map<String, List<String>> provides;
         private final URI location;
 
         New(final String moduleVersion, final String mainClass, final List<Dependency> dependencies,
                 final List<ResourceLoader> resourceLoaders, final Map<String, PackageInfo> packages,
-                final Modifiers<ModuleDescriptor.Modifier> modifiers, final Set<String> uses,
+                final ModuleDescriptor.Modifier.Set modifiers, final Set<String> uses,
                 final Map<String, List<String>> provides, final URI location) {
             this.moduleVersion = moduleVersion;
             this.mainClass = mainClass;
@@ -80,7 +79,7 @@ abstract class LinkState {
             return packages;
         }
 
-        Modifiers<ModuleDescriptor.Modifier> modifiers() {
+        ModuleDescriptor.Modifier.Set modifiers() {
             return modifiers;
         }
 

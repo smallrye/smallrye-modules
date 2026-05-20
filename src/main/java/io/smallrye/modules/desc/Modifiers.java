@@ -17,6 +17,9 @@ public final class Modifiers<M extends Enum<M> & ModifierFlag> {
         this.flags = flags;
     }
 
+    /**
+     * {@return a string representation of this modifier set}
+     */
     public String toString() {
         int flags = this.flags;
         if (flags != 0) {
@@ -35,18 +38,44 @@ public final class Modifiers<M extends Enum<M> & ModifierFlag> {
         return "(none)";
     }
 
+    /**
+     * {@return {@code true} if this set contains the given modifier}
+     *
+     * @param item the modifier to test (may be {@code null}, which is always absent)
+     */
     public boolean contains(M item) {
         return containsAny(bit(item));
     }
 
+    /**
+     * {@return {@code true} if this set contains any of the given modifiers}
+     *
+     * @param item0 the first modifier to test
+     * @param item1 the second modifier to test
+     */
     public boolean containsAny(M item0, M item1) {
         return containsAny(bit(item0) | bit(item1));
     }
 
+    /**
+     * {@return {@code true} if this set contains any of the given modifiers}
+     *
+     * @param item0 the first modifier to test
+     * @param item1 the second modifier to test
+     * @param item2 the third modifier to test
+     */
     public boolean containsAny(M item0, M item1, M item2) {
         return containsAny(bit(item0) | bit(item1) | bit(item2));
     }
 
+    /**
+     * {@return {@code true} if this set contains any of the given modifiers}
+     *
+     * @param item0 the first modifier to test
+     * @param item1 the second modifier to test
+     * @param item2 the third modifier to test
+     * @param item3 the fourth modifier to test
+     */
     public boolean containsAny(M item0, M item1, M item2, M item3) {
         return containsAny(bit(item0) | bit(item1) | bit(item2) | bit(item3));
     }
@@ -55,6 +84,11 @@ public final class Modifiers<M extends Enum<M> & ModifierFlag> {
         return (flags & bits) != 0;
     }
 
+    /**
+     * {@return {@code true} if this set contains all of the given modifiers}
+     *
+     * @param items the modifiers to test (must not be {@code null})
+     */
     @SafeVarargs
     public final boolean containsAll(M... items) {
         int bits = 0;
@@ -64,18 +98,44 @@ public final class Modifiers<M extends Enum<M> & ModifierFlag> {
         return containsAll(bits);
     }
 
+    /**
+     * {@return {@code true} if this set contains all of the given modifiers}
+     *
+     * @param item0 the first modifier to test
+     * @param item1 the second modifier to test
+     */
     public boolean containsAll(M item0, M item1) {
         return containsAll(bit(item0) | bit(item1));
     }
 
+    /**
+     * {@return {@code true} if this set contains all of the given modifiers}
+     *
+     * @param item0 the first modifier to test
+     * @param item1 the second modifier to test
+     * @param item2 the third modifier to test
+     */
     public boolean containsAll(M item0, M item1, M item2) {
         return containsAll(bit(item0) | bit(item1) | bit(item2));
     }
 
+    /**
+     * {@return {@code true} if this set contains all of the given modifiers}
+     *
+     * @param item0 the first modifier to test
+     * @param item1 the second modifier to test
+     * @param item2 the third modifier to test
+     * @param item3 the fourth modifier to test
+     */
     public boolean containsAll(M item0, M item1, M item2, M item3) {
         return containsAll(bit(item0) | bit(item1) | bit(item2) | bit(item3));
     }
 
+    /**
+     * {@return {@code true} if this set contains any of the given modifiers}
+     *
+     * @param items the modifiers to test (must not be {@code null})
+     */
     @SafeVarargs
     public final boolean containsAny(M... items) {
         int bits = 0;
@@ -93,21 +153,42 @@ public final class Modifiers<M extends Enum<M> & ModifierFlag> {
         return item == null ? 0 : 1 << item.ordinal();
     }
 
+    /**
+     * {@return a modifier set that includes the given modifier in addition to the modifiers in this set}
+     *
+     * @param item the modifier to add (may be {@code null}, which is ignored)
+     */
     public Modifiers<M> with(M item) {
         int newFlags = flags | bit(item);
         return newFlags == flags ? this : setFn.apply(newFlags);
     }
 
+    /**
+     * {@return a modifier set that includes both of the given modifiers in addition to the modifiers in this set}
+     *
+     * @param item0 the first modifier to add
+     * @param item1 the second modifier to add
+     */
     public Modifiers<M> withAll(M item0, M item1) {
         int newFlags = flags | bit(item0) | bit(item1);
         return newFlags == flags ? this : setFn.apply(newFlags);
     }
 
+    /**
+     * {@return a modifier set that is the union of this set and the given set}
+     *
+     * @param other the other modifier set (must not be {@code null})
+     */
     public Modifiers<M> withAll(Modifiers<M> other) {
         int newFlags = flags | other.flags;
         return newFlags == flags ? this : setFn.apply(newFlags);
     }
 
+    /**
+     * {@return a modifier set with the modifiers in this set, excluding the given modifier}
+     *
+     * @param item the modifier to remove
+     */
     public Modifiers<M> without(M item) {
         int newFlags = flags & ~bit(item);
         return newFlags == flags ? this : setFn.apply(newFlags);

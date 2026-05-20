@@ -68,6 +68,9 @@ public record ModuleDescriptor(
         Map<String, List<String>> provides,
         Map<String, PackageInfo> packages) {
 
+    /**
+     * Construct a new instance, validating parameters and making defensive copies.
+     */
     public ModuleDescriptor {
         Assert.checkNotNullParam("name", name);
         Assert.checkNotNullParam("version", version);
@@ -81,6 +84,11 @@ public record ModuleDescriptor(
         packages = Map.copyOf(packages);
     }
 
+    /**
+     * {@return a copy of this descriptor with the given name}
+     *
+     * @param name the new module name (must not be {@code null})
+     */
     public ModuleDescriptor withName(final String name) {
         return new ModuleDescriptor(
                 name,
@@ -94,6 +102,11 @@ public record ModuleDescriptor(
                 packages);
     }
 
+    /**
+     * {@return a copy of this descriptor with the given dependencies appended}
+     *
+     * @param list the additional dependencies (must not be {@code null})
+     */
     public ModuleDescriptor withAdditionalDependencies(final List<Dependency> list) {
         if (list.isEmpty()) {
             return this;
@@ -111,6 +124,11 @@ public record ModuleDescriptor(
         }
     }
 
+    /**
+     * {@return a copy of this descriptor with the given package map replacing the existing one}
+     *
+     * @param packages the new package map (must not be {@code null})
+     */
     public ModuleDescriptor withPackages(final Map<String, PackageInfo> packages) {
         if (packages == this.packages) {
             return this;
@@ -128,6 +146,11 @@ public record ModuleDescriptor(
         }
     }
 
+    /**
+     * {@return a copy of this descriptor with the given packages merged into the existing package map}
+     *
+     * @param packages the additional packages to merge (must not be {@code null})
+     */
     public ModuleDescriptor withAdditionalPackages(final Map<String, PackageInfo> packages) {
         if (packages.isEmpty()) {
             return this;
@@ -140,6 +163,12 @@ public record ModuleDescriptor(
         }
     }
 
+    /**
+     * {@return a copy of this descriptor with packages discovered from the given resource loaders}
+     *
+     * @param loaders the resource loaders to scan for packages (must not be {@code null})
+     * @throws IOException if an I/O error occurs during package discovery
+     */
     public ModuleDescriptor withDiscoveredPackages(final List<ResourceLoader> loaders) throws IOException {
         ModuleDescriptor desc = this;
         for (ResourceLoader loader : loaders) {
@@ -148,6 +177,13 @@ public record ModuleDescriptor(
         return desc;
     }
 
+    /**
+     * {@return a copy of this descriptor with packages discovered from the given resource loader,
+     * using default access heuristics}
+     *
+     * @param loader the resource loader to scan (must not be {@code null})
+     * @throws IOException if an I/O error occurs during package discovery
+     */
     public ModuleDescriptor withDiscoveredPackages(final ResourceLoader loader) throws IOException {
         return withDiscoveredPackages(loader, (pn, existing) -> {
             if (pn.contains(".impl.") || pn.endsWith(".impl")
@@ -160,11 +196,27 @@ public record ModuleDescriptor(
         });
     }
 
+    /**
+     * {@return a copy of this descriptor with packages discovered from the given resource loader,
+     * using the given access level for all discovered packages}
+     *
+     * @param loader the resource loader to scan (must not be {@code null})
+     * @param access the access level to assign to discovered packages (must not be {@code null})
+     * @throws IOException if an I/O error occurs during package discovery
+     */
     public ModuleDescriptor withDiscoveredPackages(final ResourceLoader loader, final PackageAccess access) throws IOException {
         return withDiscoveredPackages(loader,
                 (ignored0, existing) -> existing == null ? PackageInfo.forAccess(access) : existing.withAccessAtLeast(access));
     }
 
+    /**
+     * {@return a copy of this descriptor with packages discovered from the given resource loader,
+     * using a custom function to determine access}
+     *
+     * @param loader the resource loader to scan (must not be {@code null})
+     * @param packageFunction a function mapping package name and existing info to the desired info (must not be {@code null})
+     * @throws IOException if an I/O error occurs during package discovery
+     */
     public ModuleDescriptor withDiscoveredPackages(final ResourceLoader loader,
             final BiFunction<String, PackageInfo, PackageInfo> packageFunction) throws IOException {
         Map<String, PackageInfo> packages = searchPackages(loader.findResource("/"), packageFunction, this.packages,
@@ -185,6 +237,11 @@ public record ModuleDescriptor(
         }
     }
 
+    /**
+     * {@return a copy of this descriptor with the given service providers merged into the existing providers}
+     *
+     * @param provides additional service providers to merge (must not be {@code null})
+     */
     public ModuleDescriptor withAdditionalServiceProviders(Map<String, List<String>> provides) {
         if (provides.isEmpty()) {
             return this;
@@ -473,11 +530,32 @@ public record ModuleDescriptor(
         }
     }
 
+    /**
+     * Obtain a module descriptor from a JAR manifest, constructing an automatic module.
+     *
+     * @param defaultName the default module name if not specified in the manifest (may be {@code null})
+     * @param defaultVersion the default module version if not specified in the manifest (may be {@code null})
+     * @param manifest the JAR manifest (must not be {@code null})
+     * @param resourceLoaders the loaders from which packages may be discovered (must not be {@code null})
+     * @return the module descriptor (not {@code null})
+     * @throws IOException if an I/O error occurs during package discovery
+     */
     public static ModuleDescriptor fromManifest(String defaultName, String defaultVersion, Manifest manifest,
             List<ResourceLoader> resourceLoaders) throws IOException {
         return fromManifest(defaultName, defaultVersion, manifest, resourceLoaders, Map.of());
     }
 
+    /**
+     * Obtain a module descriptor from a JAR manifest, constructing an automatic module.
+     *
+     * @param defaultName the default module name if not specified in the manifest (may be {@code null})
+     * @param defaultVersion the default module version if not specified in the manifest (may be {@code null})
+     * @param manifest the JAR manifest (must not be {@code null})
+     * @param resourceLoaders the loaders from which packages may be discovered (must not be {@code null})
+     * @param extraAccesses extra package accesses to merge into dependencies (must not be {@code null})
+     * @return the module descriptor (not {@code null})
+     * @throws IOException if an I/O error occurs during package discovery
+     */
     public static ModuleDescriptor fromManifest(String defaultName, String defaultVersion, Manifest manifest,
             List<ResourceLoader> resourceLoaders, Map<String, Map<String, PackageAccess>> extraAccesses) throws IOException {
         var mainAttributes = manifest.getMainAttributes();
@@ -562,18 +640,39 @@ public record ModuleDescriptor(
         void close() throws XMLStreamException;
     }
 
+    /**
+     * Obtain a module descriptor from an XML {@code module.xml} resource.
+     *
+     * @param resource the resource containing the XML descriptor (must not be {@code null})
+     * @return the module descriptor (not {@code null})
+     * @throws IOException if an I/O error occurs
+     */
     public static ModuleDescriptor fromXml(Resource resource) throws IOException {
         try (InputStream is = resource.openStream()) {
             return fromXml(is);
         }
     }
 
+    /**
+     * Obtain a module descriptor from an XML input stream.
+     *
+     * @param is the input stream containing the XML descriptor (must not be {@code null})
+     * @return the module descriptor (not {@code null})
+     * @throws IOException if an I/O error occurs
+     */
     public static ModuleDescriptor fromXml(InputStream is) throws IOException {
         try (InputStreamReader r = new InputStreamReader(is, StandardCharsets.UTF_8)) {
             return fromXml(r);
         }
     }
 
+    /**
+     * Obtain a module descriptor from an XML reader.
+     *
+     * @param r the reader containing the XML descriptor (must not be {@code null})
+     * @return the module descriptor (not {@code null})
+     * @throws IOException if an I/O error occurs
+     */
     public static ModuleDescriptor fromXml(Reader r) throws IOException {
         if (r instanceof BufferedReader br) {
             return fromXml(br);
@@ -584,6 +683,13 @@ public record ModuleDescriptor(
         }
     }
 
+    /**
+     * Obtain a module descriptor from an XML buffered reader.
+     *
+     * @param br the buffered reader containing the XML descriptor (must not be {@code null})
+     * @return the module descriptor (not {@code null})
+     * @throws IOException if an I/O error occurs
+     */
     public static ModuleDescriptor fromXml(BufferedReader br) throws IOException {
         XMLInputFactory xmlInputFactory = XMLInputFactory.newDefaultFactory();
         try {
@@ -596,6 +702,13 @@ public record ModuleDescriptor(
         }
     }
 
+    /**
+     * Obtain a module descriptor from an XML stream reader.
+     *
+     * @param xml the XML stream reader positioned before the root element (must not be {@code null})
+     * @return the module descriptor (not {@code null})
+     * @throws XMLStreamException if an XML parsing error occurs
+     */
     public static ModuleDescriptor fromXml(XMLStreamReader xml) throws XMLStreamException {
         switch (xml.nextTag()) {
             case XMLStreamConstants.START_ELEMENT -> {

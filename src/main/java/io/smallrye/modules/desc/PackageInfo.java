@@ -35,10 +35,24 @@ public record PackageInfo(
         openTargets = packageAccess.isAtLeast(PackageAccess.OPEN) ? Set.of() : Set.copyOf(openTargets);
     }
 
+    /**
+     * A private package with no export or open targets.
+     */
     public static final PackageInfo PRIVATE = new PackageInfo(PackageAccess.PRIVATE, Set.of(), Set.of());
+    /**
+     * An exported package with no additional open targets.
+     */
     public static final PackageInfo EXPORTED = new PackageInfo(PackageAccess.EXPORTED, Set.of(), Set.of());
+    /**
+     * A fully open package.
+     */
     public static final PackageInfo OPEN = new PackageInfo(PackageAccess.OPEN, Set.of(), Set.of());
 
+    /**
+     * {@return the canonical package info instance for the given access level}
+     *
+     * @param access the access level (must not be {@code null})
+     */
     public static PackageInfo forAccess(final PackageAccess access) {
         return switch (access) {
             case PRIVATE -> PRIVATE;
@@ -47,6 +61,13 @@ public record PackageInfo(
         };
     }
 
+    /**
+     * {@return a package info with the given access level and targets, returning a canonical instance when possible}
+     *
+     * @param packageAccess the access level (must not be {@code null})
+     * @param exportTargets the specific export targets (must not be {@code null})
+     * @param openTargets the specific open targets (must not be {@code null})
+     */
     public static PackageInfo of(PackageAccess packageAccess, Set<String> exportTargets, Set<String> openTargets) {
         exportTargets = Set.copyOf(exportTargets);
         openTargets = Set.copyOf(openTargets);
@@ -62,6 +83,11 @@ public record PackageInfo(
         return new PackageInfo(packageAccess, exportTargets, openTargets);
     }
 
+    /**
+     * {@return a package info that is the result of merging this info with the given info}
+     *
+     * @param other the other package info (must not be {@code null})
+     */
     public PackageInfo mergedWith(PackageInfo other) {
         return of(
                 PackageAccess.max(packageAccess(), other.packageAccess()),
@@ -69,10 +95,21 @@ public record PackageInfo(
                 Util.merge(openTargets(), other.openTargets()));
     }
 
+    /**
+     * {@return the result of merging two possibly-{@code null} package info instances}
+     *
+     * @param a the first package info (may be {@code null})
+     * @param b the second package info (may be {@code null})
+     */
     public static PackageInfo merge(PackageInfo a, PackageInfo b) {
         return a == null ? b == null ? PRIVATE : b : b == null ? a : a.mergedWith(b);
     }
 
+    /**
+     * {@return a package info with an access level that is at least as permissive as the given level}
+     *
+     * @param newAccess the minimum access level (must not be {@code null})
+     */
     public PackageInfo withAccessAtLeast(PackageAccess newAccess) {
         return of(
                 PackageAccess.max(packageAccess(), newAccess),
@@ -80,6 +117,11 @@ public record PackageInfo(
                 openTargets);
     }
 
+    /**
+     * {@return a package info with the given export targets merged with existing targets}
+     *
+     * @param exportTargets additional export targets (must not be {@code null})
+     */
     public PackageInfo withExportTargets(final Set<String> exportTargets) {
         return of(
                 packageAccess(),

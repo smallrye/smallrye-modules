@@ -23,6 +23,9 @@ public record Dependency(
         Modifiers<Modifier> modifiers,
         Optional<ModuleLoader> moduleLoader,
         Map<String, PackageAccess> packageAccesses) {
+    /**
+     * Construct a new instance.
+     */
     public Dependency {
         Assert.checkNotNullParam("moduleName", moduleName);
         Assert.checkNotNullParam("modifiers", modifiers);
@@ -30,12 +33,19 @@ public record Dependency(
         packageAccesses = Map.copyOf(packageAccesses);
     }
 
+    /**
+     * Construct a new instance.
+     *
+     * @param moduleName the dependency name (must not be {@code null})
+     * @param modifiers the dependency modifiers (must not be {@code null})
+     * @param moduleLoader the optional module loader to use for this dependency (must not be {@code null})
+     */
     public Dependency(String moduleName, Modifiers<Modifier> modifiers, Optional<ModuleLoader> moduleLoader) {
         this(moduleName, modifiers, moduleLoader, Map.of());
     }
 
     /**
-     * Construct a new instance with no modifiers and no module loader.
+     * Construct a new instance.
      *
      * @param moduleName the dependency name (must not be {@code null})
      */
@@ -44,7 +54,7 @@ public record Dependency(
     }
 
     /**
-     * Construct a new instance with no modifiers and no module loader.
+     * Construct a new instance.
      *
      * @param moduleName the dependency name (must not be {@code null})
      * @param modifier the modifier to add (must not be {@code null})
@@ -53,6 +63,11 @@ public record Dependency(
         this(moduleName, Modifier.set(modifier), Optional.empty());
     }
 
+    /**
+     * {@return a dependency with the given package accesses merged with existing accesses}
+     *
+     * @param packageAccesses additional package accesses (must not be {@code null})
+     */
     public Dependency withAdditionalPackageAccesses(Map<String, PackageAccess> packageAccesses) {
         Assert.checkNotNullParam("packageAccesses", packageAccesses);
         return new Dependency(this.moduleName, this.modifiers, this.moduleLoader,
@@ -115,26 +130,44 @@ public record Dependency(
         return !modifiers.contains(Modifier.TRANSITIVE);
     }
 
+    /**
+     * {@return {@code true} if the dependency is linked for class loading}
+     */
     public boolean isLinked() {
         return modifiers.contains(Modifier.LINKED);
     }
 
+    /**
+     * {@return {@code true} if the dependency is <em>not</em> linked}
+     */
     public boolean isNonLinked() {
         return !modifiers.contains(Modifier.LINKED);
     }
 
+    /**
+     * {@return {@code true} if the dependency is readable from the source module}
+     */
     public boolean isRead() {
         return modifiers.contains(Modifier.READ);
     }
 
+    /**
+     * {@return {@code true} if the dependency is <em>not</em> readable}
+     */
     public boolean isNonRead() {
         return !modifiers.contains(Modifier.READ);
     }
 
+    /**
+     * {@return {@code true} if service implementations in the dependency are available}
+     */
     public boolean isServices() {
         return modifiers.contains(Modifier.SERVICES);
     }
 
+    /**
+     * {@return {@code true} if service implementations in the dependency are <em>not</em> available}
+     */
     public boolean isNonServices() {
         return !modifiers.contains(Modifier.SERVICES);
     }

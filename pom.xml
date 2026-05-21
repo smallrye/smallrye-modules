@@ -4,7 +4,7 @@
 
     <groupId>io.smallrye.modules</groupId>
     <artifactId>smallrye-modules</artifactId>
-    <version>1.0.alpha2-SNAPSHOT</version>
+    <version>1.0.beta1</version>
 
     <parent>
         <groupId>io.smallrye</groupId>
@@ -128,4 +128,8 @@
             </plugin>
         </plugins>
     </build>
+
+  <scm>
+    <tag>1.0.beta1</tag>
+  </scm>
 </project>

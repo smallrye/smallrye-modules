@@ -1,5 +1,6 @@
 package io.smallrye.modules.desc;
 
+import java.util.Objects;
 import java.util.Set;
 
 import io.smallrye.common.constraint.Assert;
@@ -10,29 +11,16 @@ import io.smallrye.modules.impl.Util;
  * Note that export and open targets are only recognized when the target module directly requires the module containing
  * the package described by this information.
  *
- * @param packageAccess the outbound access level of the package (must not be {@code null})
- * @param exportTargets specific export targets in addition to those implied by {@link #packageAccess()} or
- *        {@link #openTargets()} (must not be {@code null})
- * @param openTargets specific open targets in addition to those implied by {@link #packageAccess()} (must not be {@code null})
  */
-public record PackageInfo(
-        PackageAccess packageAccess,
-        Set<String> exportTargets,
-        Set<String> openTargets) {
+public final class PackageInfo {
 
-    /**
-     * Default record constructor (but use {@link #of} instead, whenever possible).
-     *
-     * @param packageAccess the outbound access level of the package (must not be {@code null})
-     * @param exportTargets specific export targets in addition to those implied by {@link #packageAccess()} or
-     *        {@link #openTargets()} (must not be {@code null})
-     * @param openTargets specific open targets in addition to those implied by {@link #packageAccess()} (must not be
-     *        {@code null})
-     */
-    public PackageInfo {
+    private PackageInfo(PackageAccess packageAccess, Set<String> exportTargets, Set<String> openTargets) {
         Assert.checkNotNullParam("packageAccess", packageAccess);
         exportTargets = packageAccess.isAtLeast(PackageAccess.EXPORTED) ? Set.of() : Set.copyOf(exportTargets);
         openTargets = packageAccess.isAtLeast(PackageAccess.OPEN) ? Set.of() : Set.copyOf(openTargets);
+        this.packageAccess = packageAccess;
+        this.exportTargets = exportTargets;
+        this.openTargets = openTargets;
     }
 
     /**
@@ -47,6 +35,9 @@ public record PackageInfo(
      * A fully open package.
      */
     public static final PackageInfo OPEN = new PackageInfo(PackageAccess.OPEN, Set.of(), Set.of());
+    private final PackageAccess packageAccess;
+    private final Set<String> exportTargets;
+    private final Set<String> openTargets;
 
     /**
      * {@return the canonical package info instance for the given access level}
@@ -127,5 +118,42 @@ public record PackageInfo(
                 packageAccess(),
                 Util.merge(exportTargets(), exportTargets),
                 openTargets());
+    }
+
+    public PackageAccess packageAccess() {
+        return packageAccess;
+    }
+
+    public Set<String> exportTargets() {
+        return exportTargets;
+    }
+
+    public Set<String> openTargets() {
+        return openTargets;
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+        return obj instanceof PackageInfo pi && equals(pi);
+    }
+
+    public boolean equals(PackageInfo other) {
+        return this == other || other != null
+                && packageAccess.equals(other.packageAccess)
+                && exportTargets.equals(other.exportTargets)
+                && openTargets.equals(other.openTargets);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(packageAccess, exportTargets, openTargets);
+    }
+
+    @Override
+    public String toString() {
+        return "PackageInfo[" +
+                "packageAccess=" + packageAccess + ", " +
+                "exportTargets=" + exportTargets + ", " +
+                "openTargets=" + openTargets + ']';
     }
 }

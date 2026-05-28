@@ -13,15 +13,19 @@ import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.DirectoryStream;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.TreeMap;
 import java.util.function.BiFunction;
 import java.util.jar.Attributes.Name;
 import java.util.jar.Manifest;
@@ -36,6 +40,9 @@ import javax.xml.stream.XMLStreamReader;
 import io.smallrye.classfile.Annotation;
 import io.smallrye.classfile.AnnotationElement;
 import io.smallrye.classfile.AnnotationValue;
+import io.smallrye.classfile.AnnotationValue.OfAnnotation;
+import io.smallrye.classfile.AnnotationValue.OfArray;
+import io.smallrye.classfile.AnnotationValue.OfString;
 import io.smallrye.classfile.Attributes;
 import io.smallrye.classfile.ClassFile;
 import io.smallrye.classfile.ClassModel;
@@ -59,247 +66,32 @@ import io.smallrye.modules.impl.Util;
 /**
  * A descriptor for initially defining a module.
  *
- * @param name the name of the module being described (must not be {@code null})
- * @param version the optional version of the module being described (must not be {@code null})
- * @param modifiers the modifiers of the module being described (must not be {@code null})
- * @param mainClass the optional main class of the module being described (must not be {@code null})
- * @param location the optional URI base location of the module being described (must not be {@code null})
- * @param dependencies the dependencies of the module being described (must not be {@code null})
- * @param uses the set of service type names used by the module being described (must not be {@code null})
- * @param provides the services being provided by the module being described (must not be {@code null})
- * @param packages the packages of the module being described (must not be {@code null})
  */
-// todo: write XML, read/write binary
-public record ModuleDescriptor(
-        String name,
-        Optional<String> version,
-        Modifier.Set modifiers,
-        Optional<String> mainClass,
-        Optional<URI> location,
-        List<Dependency> dependencies,
-        Set<String> uses,
-        Map<String, List<String>> provides,
-        Map<String, PackageInfo> packages) {
+public final class ModuleDescriptor {
+    private final String name;
+    private final Optional<String> version;
+    private final Modifier.Set modifiers;
+    private final Optional<String> mainClass;
+    private final Optional<URI> location;
+    private final List<Dependency> dependencies;
+    private final Set<String> uses;
+    private final Map<String, List<String>> provides;
+    private final Map<String, PackageInfo> packages;
 
-    /**
-     * Construct a new instance, validating parameters and making defensive copies.
-     */
-    public ModuleDescriptor {
-        Assert.checkNotNullParam("name", name);
-        Assert.checkNotNullParam("version", version);
-        Assert.checkNotNullParam("modifiers", modifiers);
-        Assert.checkNotNullParam("mainClass", mainClass);
-        Assert.checkNotNullParam("location", location);
-        dependencies = List.copyOf(dependencies);
-        packages = Map.copyOf(packages);
-        uses = Set.copyOf(uses);
-        provides = Map.copyOf(provides);
-        packages = Map.copyOf(packages);
-    }
-
-    /**
-     * {@return a copy of this descriptor with the given name}
-     *
-     * @param name the new module name (must not be {@code null})
-     */
-    public ModuleDescriptor withName(final String name) {
-        return new ModuleDescriptor(
-                name,
-                version,
-                modifiers,
-                mainClass,
-                location,
-                dependencies,
-                uses,
-                provides,
-                packages);
-    }
-
-    /**
-     * {@return a copy of this descriptor with the given dependencies appended}
-     *
-     * @param list the additional dependencies (must not be {@code null})
-     */
-    public ModuleDescriptor withAdditionalDependencies(final List<Dependency> list) {
-        if (list.isEmpty()) {
-            return this;
-        } else {
-            return new ModuleDescriptor(
-                    name,
-                    version,
-                    modifiers,
-                    mainClass,
-                    location,
-                    Util.concat(dependencies, list),
-                    uses,
-                    provides,
-                    packages);
-        }
-    }
-
-    /**
-     * {@return a copy of this descriptor with the given package map replacing the existing one}
-     *
-     * @param packages the new package map (must not be {@code null})
-     */
-    public ModuleDescriptor withPackages(final Map<String, PackageInfo> packages) {
-        if (packages == this.packages) {
-            return this;
-        } else {
-            return new ModuleDescriptor(
-                    name,
-                    version,
-                    modifiers,
-                    mainClass,
-                    location,
-                    dependencies,
-                    uses,
-                    provides,
-                    packages);
-        }
-    }
-
-    /**
-     * {@return a copy of this descriptor with the given packages merged into the existing package map}
-     *
-     * @param packages the additional packages to merge (must not be {@code null})
-     */
-    public ModuleDescriptor withAdditionalPackages(final Map<String, PackageInfo> packages) {
-        if (packages.isEmpty()) {
-            return this;
-        }
-        Map<String, PackageInfo> existing = packages();
-        if (existing.isEmpty()) {
-            return withPackages(packages);
-        } else {
-            return withPackages(Util.merge(existing, packages, PackageInfo::mergedWith));
-        }
-    }
-
-    /**
-     * {@return a copy of this descriptor with packages discovered from the given resource loaders}
-     *
-     * @param loaders the resource loaders to scan for packages (must not be {@code null})
-     * @throws IOException if an I/O error occurs during package discovery
-     */
-    public ModuleDescriptor withDiscoveredPackages(final List<ResourceLoader> loaders) throws IOException {
-        ModuleDescriptor desc = this;
-        for (ResourceLoader loader : loaders) {
-            desc = desc.withDiscoveredPackages(loader);
-        }
-        return desc;
-    }
-
-    /**
-     * {@return a copy of this descriptor with packages discovered from the given resource loader,
-     * using default access heuristics}
-     *
-     * @param loader the resource loader to scan (must not be {@code null})
-     * @throws IOException if an I/O error occurs during package discovery
-     */
-    public ModuleDescriptor withDiscoveredPackages(final ResourceLoader loader) throws IOException {
-        return withDiscoveredPackages(loader, (pn, existing) -> {
-            if (pn.contains(".impl.") || pn.endsWith(".impl")
-                    || pn.contains(".private_.") || pn.endsWith(".private_")
-                    || pn.contains("._private.") || pn.endsWith("._private")) {
-                return existing == null ? PackageInfo.PRIVATE : existing;
-            } else {
-                return existing == null ? PackageInfo.EXPORTED : existing.withAccessAtLeast(PackageAccess.EXPORTED);
-            }
-        });
-    }
-
-    /**
-     * {@return a copy of this descriptor with packages discovered from the given resource loader,
-     * using the given access level for all discovered packages}
-     *
-     * @param loader the resource loader to scan (must not be {@code null})
-     * @param access the access level to assign to discovered packages (must not be {@code null})
-     * @throws IOException if an I/O error occurs during package discovery
-     */
-    public ModuleDescriptor withDiscoveredPackages(final ResourceLoader loader, final PackageAccess access) throws IOException {
-        return withDiscoveredPackages(loader,
-                (ignored0, existing) -> existing == null ? PackageInfo.forAccess(access) : existing.withAccessAtLeast(access));
-    }
-
-    /**
-     * {@return a copy of this descriptor with packages discovered from the given resource loader,
-     * using a custom function to determine access}
-     *
-     * @param loader the resource loader to scan (must not be {@code null})
-     * @param packageFunction a function mapping package name and existing info to the desired info (must not be {@code null})
-     * @throws IOException if an I/O error occurs during package discovery
-     */
-    public ModuleDescriptor withDiscoveredPackages(final ResourceLoader loader,
-            final BiFunction<String, PackageInfo, PackageInfo> packageFunction) throws IOException {
-        Map<String, PackageInfo> packages = searchPackages(loader.findResource("/"), packageFunction, this.packages,
-                new HashSet<>());
-        if (packages == this.packages) {
-            return this;
-        } else {
-            return new ModuleDescriptor(
-                    name,
-                    version,
-                    modifiers,
-                    mainClass,
-                    location,
-                    dependencies,
-                    uses,
-                    provides,
-                    packages);
-        }
-    }
-
-    /**
-     * {@return a copy of this descriptor with the given service providers merged into the existing providers}
-     *
-     * @param provides additional service providers to merge (must not be {@code null})
-     */
-    public ModuleDescriptor withAdditionalServiceProviders(Map<String, List<String>> provides) {
-        if (provides.isEmpty()) {
-            return this;
-        } else {
-            return new ModuleDescriptor(
-                    name,
-                    version,
-                    modifiers,
-                    mainClass,
-                    location,
-                    dependencies,
-                    uses,
-                    Util.merge(provides(), provides, Util::concat),
-                    packages);
-        }
-    }
-
-    private Map<String, PackageInfo> searchPackages(final Resource dir,
-            final BiFunction<String, PackageInfo, PackageInfo> packageFunction, Map<String, PackageInfo> map, Set<String> found)
-            throws IOException {
-        try (DirectoryStream<Resource> ds = dir.openDirectoryStream()) {
-            for (Resource child : ds) {
-                if (child.isDirectory()) {
-                    map = searchPackages(child, packageFunction, map, found);
-                } else {
-                    String pathName = child.pathName();
-                    if (pathName.endsWith(".class")) {
-                        String pn = Util.resourcePackageName(pathName);
-                        if (!pn.isEmpty() && found.add(pn)) {
-                            PackageInfo existing = map.get(pn);
-                            PackageInfo update = packageFunction.apply(pn, existing);
-                            if (update == null || update.equals(existing)) {
-                                // skip it
-                                continue;
-                            }
-                            if (map == packages) {
-                                map = new HashMap<>(packages);
-                            }
-                            map.put(pn.intern(), update);
-                        }
-                    }
-                }
-            }
-        }
-        return map;
+    private ModuleDescriptor(Builder builder) {
+        name = builder.name;
+        version = builder.version;
+        modifiers = builder.modifiers;
+        mainClass = builder.mainClass;
+        location = builder.location;
+        dependencies = List.copyOf(builder.dependencies.values());
+        uses = Set.copyOf(builder.uses);
+        //noinspection unchecked
+        provides = Map.ofEntries(
+                builder.provides.entrySet().stream()
+                        .map(e -> Map.entry(e.getKey(), List.copyOf(e.getValue())))
+                        .toArray(Entry[]::new));
+        packages = Map.copyOf(builder.packages);
     }
 
     /**
@@ -427,12 +219,28 @@ public record ModuleDescriptor(
                 return setOf(flags ^ bit(item));
             }
 
+            public Set mergedWith(final Set modifiers) {
+                return withAll(modifiers);
+            }
+
             public boolean contains(final Object o) {
                 return o instanceof Modifier m && contains(m);
             }
 
             public Iterator<Modifier> iterator() {
                 return new Biterator<>(flags, values);
+            }
+
+            public boolean equals(final Object o) {
+                return o instanceof Set other && equals(other);
+            }
+
+            public boolean equals(final Set other) {
+                return other != null && flags == other.flags;
+            }
+
+            public int hashCode() {
+                return flags;
             }
 
             Modifier value(final int index) {
@@ -459,7 +267,251 @@ public record ModuleDescriptor(
                 }
                 return set;
             }
+        }
+    }
 
+    /**
+     * A builder for module descriptors.
+     *
+     * @see ModuleDescriptor#builder()
+     * @see ModuleDescriptor#builder(ModuleDescriptor)
+     */
+    public static final class Builder {
+        private static final Map<String, Dependency> INITIAL_DEP_MAP = Map.of("java.base", Dependency.JAVA_BASE);
+
+        private String name;
+        private Optional<String> version;
+        private Modifier.Set modifiers;
+        private Optional<String> mainClass;
+        private Optional<URI> location;
+        private Map<String, Dependency> dependencies;
+        private Set<String> uses;
+        private Map<String, List<String>> provides;
+        private Map<String, PackageInfo> packages;
+
+        private Builder() {
+            version = Optional.empty();
+            modifiers = Modifier.Set.of();
+            mainClass = Optional.empty();
+            location = Optional.empty();
+            dependencies = INITIAL_DEP_MAP;
+            uses = Set.of();
+            provides = Map.of();
+            packages = Map.of();
+        }
+
+        private Builder(ModuleDescriptor old) {
+            name = old.name;
+            version = old.version;
+            modifiers = old.modifiers;
+            mainClass = old.mainClass;
+            location = old.location;
+            if (old.dependencies.size() == 1) {
+                dependencies = INITIAL_DEP_MAP;
+            } else {
+                dependencies = new LinkedHashMap<>(old.dependencies.size() * 2);
+                for (Dependency dependency : old.dependencies) {
+                    dependencies.put(dependency.moduleName(), dependency);
+                }
+            }
+            uses = old.uses.isEmpty() ? Set.of() : new HashSet<>(old.uses);
+            if (old.provides.isEmpty()) {
+                provides = Map.of();
+            } else {
+                provides = new LinkedHashMap<>(old.provides.size() * 2);
+                for (Entry<String, List<String>> entry : old.provides.entrySet()) {
+                    provides.put(entry.getKey(), new ArrayList<>(entry.getValue()));
+                }
+            }
+            packages = old.packages.isEmpty() ? Map.of() : new HashMap<>(old.packages);
+        }
+
+        public Builder setName(final String name) {
+            this.name = name;
+            return this;
+        }
+
+        public Builder setVersion(final Optional<String> version) {
+            this.version = version;
+            return this;
+        }
+
+        public Builder setVersion(final String version) {
+            this.version = Optional.ofNullable(version);
+            return this;
+        }
+
+        public Builder addModifier(final Modifier modifier) {
+            this.modifiers = this.modifiers.with(Assert.checkNotNullParam("modifier", modifier));
+            return this;
+        }
+
+        public Builder removeModifier(final Modifier modifier) {
+            this.modifiers = this.modifiers.without(Assert.checkNotNullParam("modifier", modifier));
+            return this;
+        }
+
+        public Builder mergeModifiers(final Modifier.Set modifiers) {
+            this.modifiers = this.modifiers.mergedWith(Assert.checkNotNullParam("modifiers", modifiers));
+            return this;
+        }
+
+        public Builder setMainClass(final String mainClass) {
+            this.mainClass = Optional.of(mainClass);
+            return this;
+        }
+
+        public Builder setMainClass(final Optional<String> mainClass) {
+            this.mainClass = mainClass;
+            return this;
+        }
+
+        public Builder setLocation(final URI location) {
+            this.location = Optional.ofNullable(location);
+            return this;
+        }
+
+        public Builder addDependency(Dependency dependency) {
+            Assert.checkNotNullParam("dependency", dependency);
+            if (!dependency.equals(Dependency.JAVA_BASE)) {
+                if (dependencies.size() == 1) {
+                    dependencies = new LinkedHashMap<>();
+                    dependencies.putAll(INITIAL_DEP_MAP);
+                }
+                dependencies.compute(dependency.moduleName(),
+                        (name, oldVal) -> oldVal == null ? dependency : oldVal.mergedWith(dependency));
+            }
+            return this;
+        }
+
+        public Builder addDependencies(Collection<Dependency> dependencies) {
+            Assert.checkNotNullParam("dependencies", dependencies);
+            dependencies.forEach(this::addDependency);
+            return this;
+        }
+
+        public Builder addUses(final String name) {
+            Assert.checkNotNullParam("name", name);
+            if (uses.isEmpty()) {
+                uses = new LinkedHashSet<>();
+            }
+            uses.add(name);
+            return this;
+        }
+
+        public Builder addUses(final Collection<String> uses) {
+            Assert.checkNotNullParam("uses", uses);
+            uses.forEach(this::addUses);
+            return this;
+        }
+
+        public Builder addProvides(final String serviceName, final String... withNames) {
+            return addProvides(serviceName, List.of(withNames));
+        }
+
+        public Builder addProvides(final String serviceName, final Collection<String> withNames) {
+            Assert.checkNotNullParam("serviceName", serviceName);
+            Assert.checkNotNullParam("withNames", withNames);
+            if (provides.isEmpty()) {
+                provides = new LinkedHashMap<>();
+            }
+            provides.computeIfAbsent(serviceName, Util::newArrayList).addAll(List.copyOf(withNames));
+            return this;
+        }
+
+        public Builder addProvides(final Map<String, List<String>> provides) {
+            Assert.checkNotNullParam("provides", provides);
+            provides.forEach(this::addProvides);
+            return this;
+        }
+
+        public Builder addPackage(final String packageName, final PackageInfo info) {
+            Assert.checkNotNullParam("packageName", packageName);
+            Assert.checkNotNullParam("info", info);
+            if (packages.isEmpty()) {
+                packages = new TreeMap<>();
+            }
+            packages.compute(packageName, (name, oldVal) -> oldVal == null ? info : oldVal.mergedWith(info));
+            return this;
+        }
+
+        public Builder addPackages(final Map<String, PackageInfo> packages) {
+            Assert.checkNotNullParam("packages", packages);
+            packages.forEach(this::addPackage);
+            return this;
+        }
+
+        public Builder clearPackages() {
+            packages = Map.of();
+            return this;
+        }
+
+        public Builder addDiscoveredPackages(List<ResourceLoader> loaders) throws IOException {
+            Assert.checkNotNullParam("loaders", loaders);
+            for (ResourceLoader loader : loaders) {
+                addDiscoveredPackages(loader);
+            }
+            return this;
+        }
+
+        public Builder addDiscoveredPackages(List<ResourceLoader> loaders,
+                BiFunction<String, PackageInfo, PackageInfo> packageFunction) throws IOException {
+            Assert.checkNotNullParam("loaders", loaders);
+            for (ResourceLoader loader : loaders) {
+                addDiscoveredPackages(loader, packageFunction);
+            }
+            return this;
+        }
+
+        public Builder addDiscoveredPackages(ResourceLoader loader) throws IOException {
+            return addDiscoveredPackages(loader, Builder::defaultFunction);
+        }
+
+        public Builder addDiscoveredPackages(ResourceLoader loader,
+                BiFunction<String, PackageInfo, PackageInfo> packageFunction) throws IOException {
+            Assert.checkNotNullParam("loader", loader);
+            searchPackages(loader.findResource("/"), packageFunction, new HashSet<>());
+            return this;
+        }
+
+        private static PackageInfo defaultFunction(String pn, PackageInfo info) {
+            if (pn.contains(".impl.") || pn.endsWith(".impl")
+                    || pn.contains(".private_.") || pn.endsWith(".private_")
+                    || pn.contains("._private.") || pn.endsWith("._private")) {
+                return info == null ? PackageInfo.PRIVATE : info;
+            } else {
+                return info == null ? PackageInfo.EXPORTED : info.withAccessAtLeast(PackageAccess.EXPORTED);
+            }
+        }
+
+        private void searchPackages(final Resource dir, final BiFunction<String, PackageInfo, PackageInfo> packageFunction,
+                Set<String> found)
+                throws IOException {
+            try (DirectoryStream<Resource> ds = dir.openDirectoryStream()) {
+                for (Resource child : ds) {
+                    if (child.isDirectory()) {
+                        searchPackages(child, packageFunction, found);
+                    } else {
+                        String pathName = child.pathName();
+                        if (pathName.endsWith(".class")) {
+                            String pn = Util.resourcePackageName(pathName);
+                            if (!pn.isEmpty() && found.add(pn)) {
+                                PackageInfo existing = packages.get(pn);
+                                PackageInfo update = packageFunction.apply(pn, existing);
+                                if (update == null || update.equals(existing)) {
+                                    // skip it
+                                    continue;
+                                }
+                                addPackage(pn.intern(), update);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        public ModuleDescriptor build() {
+            return new ModuleDescriptor(this);
         }
     }
 
@@ -515,12 +567,13 @@ public record ModuleDescriptor(
                 switch (ann.className().stringValue()) {
                     case "io.smallrye.common.annotation.AddExports", "io.smallrye.common.annotation.AddOpens" ->
                         processAccessAnnotation(ann, modifiedExtraAccesses);
-                    case "io.smallrye.common.annotation.AddExports$List", "io.smallrye.common.annotation.AddOpens$List" -> {
+                    case "io.smallrye.common.annotation.AddExports$List",
+                            "io.smallrye.common.annotation.AddOpens$List" -> {
                         for (AnnotationElement element : ann.elements()) {
                             if (element.name().stringValue().equals("value")) {
-                                AnnotationValue.OfArray val = (AnnotationValue.OfArray) element.value();
+                                OfArray val = (OfArray) element.value();
                                 for (AnnotationValue value : val.values()) {
-                                    processAccessAnnotation(((AnnotationValue.OfAnnotation) value).annotation(),
+                                    processAccessAnnotation(((OfAnnotation) value).annotation(),
                                             modifiedExtraAccesses);
                                 }
                             }
@@ -574,42 +627,43 @@ public record ModuleDescriptor(
                 .map(String::intern)
                 .forEach(name -> packagesMap.putIfAbsent(name, PackageInfo.PRIVATE)));
         String moduleName = ma.moduleName().name().stringValue();
-        ModuleDescriptor desc = new ModuleDescriptor(
-                moduleName,
-                ma.moduleVersion().map(Utf8Entry::stringValue),
-                mods,
-                mca.map(ModuleMainClassAttribute::mainClass)
+        ModuleDescriptor desc = builder()
+                .setName(moduleName)
+                .setVersion(ma.moduleVersion().map(Utf8Entry::stringValue))
+                .mergeModifiers(mods)
+                .setMainClass(mca.map(ModuleMainClassAttribute::mainClass)
                         .map(ClassEntry::name)
                         .map(Utf8Entry::stringValue)
                         .map(s -> s.replace('/', '.'))
-                        .map(String::intern),
-                Optional.empty(),
-                ma.requires().stream().map(
-                        r -> new Dependency(
-                                r.requires().name().stringValue(),
-                                toModifiers(r.requiresFlags()),
-                                Optional.empty(),
-                                modifiedExtraAccesses.getOrDefault(r.requires().name().stringValue(), Map.of())))
-                        .collect(Util.toList()),
-                ma.uses().stream()
-                        .map(ClassEntry::name)
-                        .map(Utf8Entry::stringValue)
-                        .map(s -> s.replace('/', '.'))
-                        .map(String::intern)
-                        .collect(Collectors.toUnmodifiableSet()),
-                ma.provides().stream().map(
-                        mpi -> Map.entry(mpi.provides().name().stringValue().replace('/', '.').intern(),
-                                mpi.providesWith().stream()
-                                        .map(ClassEntry::name)
-                                        .map(Utf8Entry::stringValue)
-                                        .map(s -> s.replace('/', '.'))
-                                        .map(String::intern)
-                                        .collect(Util.toList())))
-                        .collect(Util.toMap()),
-                packagesMap);
-        if (mpa.isEmpty()) {
-            desc = desc.withDiscoveredPackages(resourceLoaders);
-        }
+                        .map(String::intern))
+                .addDependencies(
+                        ma.requires().stream().map(
+                                r -> Dependency.builder(r.requires().name().stringValue())
+                                        .mergeModifiers(toModifiers(r.requiresFlags()))
+                                        .addPackageAccesses(modifiedExtraAccesses.getOrDefault(
+                                                r.requires().name().stringValue(), Map.of()))
+                                        .build())
+                                .collect(Util.toList()))
+                .addUses(
+                        ma.uses().stream()
+                                .map(ClassEntry::name)
+                                .map(Utf8Entry::stringValue)
+                                .map(s -> s.replace('/', '.'))
+                                .map(String::intern)
+                                .collect(Collectors.toUnmodifiableSet()))
+                .addProvides(
+                        ma.provides().stream().map(
+                                mpi -> Map.entry(mpi.provides().name().stringValue().replace('/', '.').intern(),
+                                        mpi.providesWith().stream()
+                                                .map(ClassEntry::name)
+                                                .map(Utf8Entry::stringValue)
+                                                .map(s -> s.replace('/', '.'))
+                                                .map(String::intern)
+                                                .collect(Util.toList())))
+                                .collect(Util.toMap()))
+                .addPackages(packagesMap)
+                .addDiscoveredPackages(mpa.isEmpty() ? resourceLoaders : List.of())
+                .build();
         return desc;
     }
 
@@ -618,9 +672,9 @@ public record ModuleDescriptor(
         List<String> packages = null;
         for (AnnotationElement element : ann.elements()) {
             switch (element.name().stringValue()) {
-                case "module" -> moduleName = ((AnnotationValue.OfString) element.value()).stringValue();
-                case "packages" -> packages = ((AnnotationValue.OfArray) element.value()).values().stream()
-                        .map(AnnotationValue.OfString.class::cast).map(AnnotationValue.OfString::stringValue).toList();
+                case "module" -> moduleName = ((OfString) element.value()).stringValue();
+                case "packages" -> packages = ((OfArray) element.value()).values().stream()
+                        .map(OfString.class::cast).map(OfString::stringValue).toList();
             }
         }
         if (moduleName == null || moduleName.equals("ALL-UNNAMED") || packages == null) {
@@ -718,14 +772,17 @@ public record ModuleDescriptor(
                                     addExports.get(depName).stream().map(pkg -> Map.entry(pkg, PackageAccess.EXPORTED)),
                                     addOpens.get(depName).stream().map(pkg -> Map.entry(pkg, PackageAccess.OPEN))),
                             extraAccesses.getOrDefault(depName, Map.of()).entrySet().stream())
-                            .collect(Collectors.toUnmodifiableMap(Map.Entry::getKey, Map.Entry::getValue, PackageAccess::max));
+                            .collect(Collectors.toUnmodifiableMap(Entry::getKey, Entry::getValue, PackageAccess::max));
                 } else {
                     accesses = Map.of();
                 }
                 if (dependencies.isEmpty()) {
                     dependencies = new ArrayList<>();
                 }
-                dependencies.add(new Dependency(depName, mods, Optional.empty(), accesses));
+                dependencies.add(Dependency.builder(depName)
+                        .mergeModifiers(mods)
+                        .addPackageAccesses(accesses)
+                        .build());
             }
         }
         if (moduleName == null) {
@@ -738,16 +795,14 @@ public record ModuleDescriptor(
         if (enableNativeAccess) {
             mods = mods.with(Modifier.NATIVE_ACCESS);
         }
-        return new ModuleDescriptor(
-                moduleName,
-                Optional.ofNullable(version),
-                mods,
-                Optional.ofNullable(mainClass),
-                Optional.empty(),
-                dependencies,
-                Set.of(),
-                Map.of(),
-                Map.of()).withDiscoveredPackages(resourceLoaders);
+        return builder()
+                .setName(moduleName)
+                .setVersion(Optional.ofNullable(version))
+                .mergeModifiers(mods)
+                .setMainClass(Optional.ofNullable(mainClass))
+                .addDependencies(dependencies)
+                .addDiscoveredPackages(resourceLoaders)
+                .build();
     }
 
     interface XMLCloser extends AutoCloseable {
@@ -944,16 +999,16 @@ public record ModuleDescriptor(
                     }
                 }
                 case XMLStreamConstants.END_ELEMENT -> {
-                    return new ModuleDescriptor(
-                            name,
-                            version,
-                            mods,
-                            mainClass,
-                            Optional.empty(),
-                            dependencies,
-                            uses,
-                            provides,
-                            packages);
+                    return builder()
+                            .setName(name)
+                            .setVersion(version)
+                            .mergeModifiers(mods)
+                            .setMainClass(mainClass)
+                            .addDependencies(dependencies)
+                            .addUses(uses)
+                            .addProvides(provides)
+                            .addPackages(packages)
+                            .build();
                 }
             }
         }
@@ -1039,7 +1094,10 @@ public record ModuleDescriptor(
                     }
                 }
                 case XMLStreamConstants.END_ELEMENT -> {
-                    return new Dependency(name, modifiers, Optional.empty(), packageAccesses);
+                    return Dependency.builder(name)
+                            .mergeModifiers(modifiers)
+                            .addPackageAccesses(packageAccesses)
+                            .build();
                 }
             }
         }
@@ -1136,7 +1194,7 @@ public record ModuleDescriptor(
                     if (exportTargets.isEmpty() && openTargets.isEmpty()) {
                         packages.put(pkg, PackageInfo.PRIVATE);
                     } else {
-                        packages.put(pkg, new PackageInfo(PackageAccess.PRIVATE, exportTargets, openTargets));
+                        packages.put(pkg, PackageInfo.of(PackageAccess.PRIVATE, exportTargets, openTargets));
                     }
                     return;
                 }
@@ -1181,7 +1239,7 @@ public record ModuleDescriptor(
                     if (openTargets.isEmpty()) {
                         packages.put(pkg, PackageInfo.EXPORTED);
                     } else {
-                        packages.put(pkg, new PackageInfo(PackageAccess.EXPORTED, Set.of(), openTargets));
+                        packages.put(pkg, PackageInfo.of(PackageAccess.EXPORTED, Set.of(), openTargets));
                     }
                     return;
                 }
@@ -1397,4 +1455,95 @@ public record ModuleDescriptor(
         return new IllegalArgumentException("No module attribute found in module descriptor");
     }
 
+    public String name() {
+        return name;
+    }
+
+    public Optional<String> version() {
+        return version;
+    }
+
+    public Modifier.Set modifiers() {
+        return modifiers;
+    }
+
+    public Optional<String> mainClass() {
+        return mainClass;
+    }
+
+    public Optional<URI> location() {
+        return location;
+    }
+
+    public List<Dependency> dependencies() {
+        return dependencies;
+    }
+
+    public Set<String> uses() {
+        return uses;
+    }
+
+    public Map<String, List<String>> provides() {
+        return provides;
+    }
+
+    public Map<String, PackageInfo> packages() {
+        return packages;
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+        return obj instanceof ModuleDescriptor other && equals(other);
+    }
+
+    public boolean equals(ModuleDescriptor other) {
+        return this == other || other != null &&
+                name.equals(other.name) &&
+                version.equals(other.version) &&
+                modifiers.equals(other.modifiers) &&
+                mainClass.equals(other.mainClass) &&
+                location.equals(other.location) &&
+                dependencies.equals(other.dependencies) &&
+                uses.equals(other.uses) &&
+                provides.equals(other.provides) &&
+                packages.equals(other.packages);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(name, version, modifiers, mainClass, location, dependencies, uses, provides, packages);
+    }
+
+    @Override
+    public String toString() {
+        return "ModuleDescriptor[" +
+                "name=" + name + ", " +
+                "version=" + version + ", " +
+                "modifiers=" + modifiers + ", " +
+                "mainClass=" + mainClass + ", " +
+                "location=" + location + ", " +
+                "dependencies=" + dependencies + ", " +
+                "uses=" + uses + ", " +
+                "provides=" + provides + ", " +
+                "packages=" + packages + ']';
+    }
+
+    /**
+     * Create a new descriptor builder.
+     *
+     * @return the new descriptor builder (not {@code null})
+     */
+    public static Builder builder() {
+        return new Builder();
+    }
+
+    /**
+     * Create a new descriptor builder using the given descriptor as a template.
+     *
+     * @param existing the template descriptor (must not be {@code null})
+     * @return the new descriptor builder (not {@code null})
+     */
+    public static Builder builder(ModuleDescriptor existing) {
+        return new Builder(existing);
+    }
 }

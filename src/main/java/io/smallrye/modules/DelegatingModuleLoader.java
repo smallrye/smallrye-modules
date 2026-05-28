@@ -35,6 +35,9 @@ public final class DelegatingModuleLoader extends ModuleLoader {
         Assert.checkNotNullParam("delegate", delegate);
     }
 
+    /**
+     * {@inheritDoc}
+     */
     public LoadedModule loadModule(final String moduleName) {
         LoadedModule loadedModule = super.loadModule(moduleName);
         if (loadedModule != null) {

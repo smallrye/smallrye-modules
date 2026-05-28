@@ -139,14 +139,14 @@ public final class ModuleDescriptor {
             }
 
             /**
-             * {@return the empty set of modifiers}
+             * {@return the empty set of modifiers (not {@code null})}
              */
             public static Set of() {
                 return getSet(0);
             }
 
             /**
-             * {@return the set of one modifier}
+             * {@return the set of one modifier (not {@code null})}
              *
              * @param modifier the modifier
              */
@@ -155,7 +155,7 @@ public final class ModuleDescriptor {
             }
 
             /**
-             * {@return the set of two modifiers}
+             * {@return the set of two modifiers (not {@code null})}
              *
              * @param modifier0 the first modifier
              * @param modifier1 the second modifier
@@ -165,7 +165,7 @@ public final class ModuleDescriptor {
             }
 
             /**
-             * {@return the set of three modifiers}
+             * {@return the set of three modifiers (not {@code null})}
              *
              * @param modifier0 the first modifier
              * @param modifier1 the second modifier
@@ -176,7 +176,7 @@ public final class ModuleDescriptor {
             }
 
             /**
-             * {@return the set of four modifiers}
+             * {@return the set of four modifiers (not {@code null})}
              *
              * @param modifier0 the first modifier
              * @param modifier1 the second modifier
@@ -188,57 +188,92 @@ public final class ModuleDescriptor {
             }
 
             /**
-             * {@return the set of all modifiers}
+             * {@return the set of all modifiers (not {@code null})}
              */
             public static Set ofAll() {
                 return getSet(sets.length - 1);
             }
 
+            /**
+             * {@inheritDoc}
+             */
             public Set with(final Modifier item) {
                 return setOf(flags | bit(item));
             }
 
+            /**
+             * {@inheritDoc}
+             */
             public Set withAll(final Modifier item0, final Modifier item1) {
                 return setOf(flags | bit(item0) | bit(item1));
             }
 
             /**
-             * {@return a modifier set that includes the given modifier set in addition to the modifiers in this set}
+             * {@return a modifier set that includes the given modifier set in addition to the modifiers in this set
+             * (not {@code null})}
              *
-             * @param other the modifier set to add
+             * @param other the modifier set to add (must not be {@code null})
              */
             public Set withAll(final Set other) {
                 return setOf(flags | other.flags);
             }
 
+            /**
+             * {@inheritDoc}
+             */
             public Set without(final Modifier item) {
                 return setOf(flags & ~bit(item));
             }
 
+            /**
+             * {@inheritDoc}
+             */
             public Set xor(final Modifier item) {
                 return setOf(flags ^ bit(item));
             }
 
+            /**
+             * {@return a modifier set that is the logical combination of this set and the given set (not {@code null})}
+             *
+             * @param modifiers the modifier set to merge with (must not be {@code null})
+             */
             public Set mergedWith(final Set modifiers) {
                 return withAll(modifiers);
             }
 
+            /**
+             * {@inheritDoc}
+             */
             public boolean contains(final Object o) {
                 return o instanceof Modifier m && contains(m);
             }
 
+            /**
+             * {@inheritDoc}
+             */
             public Iterator<Modifier> iterator() {
                 return new Biterator<>(flags, values);
             }
 
+            /**
+             * {@inheritDoc}
+             */
             public boolean equals(final Object o) {
                 return o instanceof Set other && equals(other);
             }
 
+            /**
+             * {@return {@code true} if the given set contains the same modifiers as this one}
+             *
+             * @param other the other set to compare (may be {@code null})
+             */
             public boolean equals(final Set other) {
                 return other != null && flags == other.flags;
             }
 
+            /**
+             * {@inheritDoc}
+             */
             public int hashCode() {
                 return flags;
             }
@@ -326,51 +361,112 @@ public final class ModuleDescriptor {
             packages = old.packages.isEmpty() ? Map.of() : new HashMap<>(old.packages);
         }
 
+        /**
+         * Set the module name.
+         *
+         * @param name the module name (must not be {@code null})
+         * @return this builder (not {@code null})
+         */
         public Builder setName(final String name) {
             this.name = name;
             return this;
         }
 
+        /**
+         * Set the module version.
+         *
+         * @param version the optional module version (must not be {@code null})
+         * @return this builder (not {@code null})
+         */
         public Builder setVersion(final Optional<String> version) {
             this.version = version;
             return this;
         }
 
+        /**
+         * Set the module version.
+         *
+         * @param version the module version, or {@code null} for none
+         * @return this builder (not {@code null})
+         */
         public Builder setVersion(final String version) {
             this.version = Optional.ofNullable(version);
             return this;
         }
 
+        /**
+         * Add a modifier to the module descriptor.
+         *
+         * @param modifier the modifier to add (must not be {@code null})
+         * @return this builder (not {@code null})
+         */
         public Builder addModifier(final Modifier modifier) {
             this.modifiers = this.modifiers.with(Assert.checkNotNullParam("modifier", modifier));
             return this;
         }
 
+        /**
+         * Remove a modifier from the module descriptor.
+         *
+         * @param modifier the modifier to remove (must not be {@code null})
+         * @return this builder (not {@code null})
+         */
         public Builder removeModifier(final Modifier modifier) {
             this.modifiers = this.modifiers.without(Assert.checkNotNullParam("modifier", modifier));
             return this;
         }
 
+        /**
+         * Merge the given modifier set into the module descriptor's modifiers.
+         *
+         * @param modifiers the modifiers to merge (must not be {@code null})
+         * @return this builder (not {@code null})
+         */
         public Builder mergeModifiers(final Modifier.Set modifiers) {
             this.modifiers = this.modifiers.mergedWith(Assert.checkNotNullParam("modifiers", modifiers));
             return this;
         }
 
+        /**
+         * Set the main class name.
+         *
+         * @param mainClass the main class name (must not be {@code null})
+         * @return this builder (not {@code null})
+         */
         public Builder setMainClass(final String mainClass) {
             this.mainClass = Optional.of(mainClass);
             return this;
         }
 
+        /**
+         * Set the optional main class name.
+         *
+         * @param mainClass the optional main class name (must not be {@code null})
+         * @return this builder (not {@code null})
+         */
         public Builder setMainClass(final Optional<String> mainClass) {
             this.mainClass = mainClass;
             return this;
         }
 
+        /**
+         * Set the module location URI.
+         *
+         * @param location the location URI, or {@code null} for none
+         * @return this builder (not {@code null})
+         */
         public Builder setLocation(final URI location) {
             this.location = Optional.ofNullable(location);
             return this;
         }
 
+        /**
+         * Add a dependency to the module descriptor.
+         * If a dependency on the same module already exists, the two are merged.
+         *
+         * @param dependency the dependency to add (must not be {@code null})
+         * @return this builder (not {@code null})
+         */
         public Builder addDependency(Dependency dependency) {
             Assert.checkNotNullParam("dependency", dependency);
             if (!dependency.equals(Dependency.JAVA_BASE)) {
@@ -384,12 +480,24 @@ public final class ModuleDescriptor {
             return this;
         }
 
+        /**
+         * Add multiple dependencies to the module descriptor.
+         *
+         * @param dependencies the dependencies to add (must not be {@code null})
+         * @return this builder (not {@code null})
+         */
         public Builder addDependencies(Collection<Dependency> dependencies) {
             Assert.checkNotNullParam("dependencies", dependencies);
             dependencies.forEach(this::addDependency);
             return this;
         }
 
+        /**
+         * Add a service usage declaration.
+         *
+         * @param name the fully-qualified service class name (must not be {@code null})
+         * @return this builder (not {@code null})
+         */
         public Builder addUses(final String name) {
             Assert.checkNotNullParam("name", name);
             if (uses.isEmpty()) {
@@ -399,16 +507,36 @@ public final class ModuleDescriptor {
             return this;
         }
 
+        /**
+         * Add multiple service usage declarations.
+         *
+         * @param uses the service class names to add (must not be {@code null})
+         * @return this builder (not {@code null})
+         */
         public Builder addUses(final Collection<String> uses) {
             Assert.checkNotNullParam("uses", uses);
             uses.forEach(this::addUses);
             return this;
         }
 
+        /**
+         * Add a service provider declaration.
+         *
+         * @param serviceName the fully-qualified service class name (must not be {@code null})
+         * @param withNames the fully-qualified provider implementation class names (must not be {@code null})
+         * @return this builder (not {@code null})
+         */
         public Builder addProvides(final String serviceName, final String... withNames) {
             return addProvides(serviceName, List.of(withNames));
         }
 
+        /**
+         * Add a service provider declaration.
+         *
+         * @param serviceName the fully-qualified service class name (must not be {@code null})
+         * @param withNames the fully-qualified provider implementation class names (must not be {@code null})
+         * @return this builder (not {@code null})
+         */
         public Builder addProvides(final String serviceName, final Collection<String> withNames) {
             Assert.checkNotNullParam("serviceName", serviceName);
             Assert.checkNotNullParam("withNames", withNames);
@@ -419,12 +547,26 @@ public final class ModuleDescriptor {
             return this;
         }
 
+        /**
+         * Add multiple service provider declarations.
+         *
+         * @param provides a map from service class names to lists of provider implementation class names
+         *        (must not be {@code null})
+         * @return this builder (not {@code null})
+         */
         public Builder addProvides(final Map<String, List<String>> provides) {
             Assert.checkNotNullParam("provides", provides);
             provides.forEach(this::addProvides);
             return this;
         }
 
+        /**
+         * Add a package to the module descriptor, merging with any existing entry for the same package name.
+         *
+         * @param packageName the package name (must not be {@code null})
+         * @param info the package info (must not be {@code null})
+         * @return this builder (not {@code null})
+         */
         public Builder addPackage(final String packageName, final PackageInfo info) {
             Assert.checkNotNullParam("packageName", packageName);
             Assert.checkNotNullParam("info", info);
@@ -435,17 +577,35 @@ public final class ModuleDescriptor {
             return this;
         }
 
+        /**
+         * Add multiple packages to the module descriptor.
+         *
+         * @param packages the map of package names to package info (must not be {@code null})
+         * @return this builder (not {@code null})
+         */
         public Builder addPackages(final Map<String, PackageInfo> packages) {
             Assert.checkNotNullParam("packages", packages);
             packages.forEach(this::addPackage);
             return this;
         }
 
+        /**
+         * Clear all packages from the module descriptor.
+         *
+         * @return this builder (not {@code null})
+         */
         public Builder clearPackages() {
             packages = Map.of();
             return this;
         }
 
+        /**
+         * Discover and add packages from the given resource loaders using the default package function.
+         *
+         * @param loaders the resource loaders to scan for packages (must not be {@code null})
+         * @return this builder (not {@code null})
+         * @throws IOException if an I/O error occurs during package discovery
+         */
         public Builder addDiscoveredPackages(List<ResourceLoader> loaders) throws IOException {
             Assert.checkNotNullParam("loaders", loaders);
             for (ResourceLoader loader : loaders) {
@@ -454,6 +614,15 @@ public final class ModuleDescriptor {
             return this;
         }
 
+        /**
+         * Discover and add packages from the given resource loaders using a custom package function.
+         *
+         * @param loaders the resource loaders to scan for packages (must not be {@code null})
+         * @param packageFunction the function to determine the package info for each discovered package
+         *        (must not be {@code null})
+         * @return this builder (not {@code null})
+         * @throws IOException if an I/O error occurs during package discovery
+         */
         public Builder addDiscoveredPackages(List<ResourceLoader> loaders,
                 BiFunction<String, PackageInfo, PackageInfo> packageFunction) throws IOException {
             Assert.checkNotNullParam("loaders", loaders);
@@ -463,10 +632,27 @@ public final class ModuleDescriptor {
             return this;
         }
 
+        /**
+         * Discover and add packages from the given resource loader using the default package function.
+         *
+         * @param loader the resource loader to scan for packages (must not be {@code null})
+         * @return this builder (not {@code null})
+         * @throws IOException if an I/O error occurs during package discovery
+         */
         public Builder addDiscoveredPackages(ResourceLoader loader) throws IOException {
             return addDiscoveredPackages(loader, Builder::defaultFunction);
         }
 
+        /**
+         * Discover and add packages from the given resource loader using a custom package function.
+         *
+         * @param loader the resource loader to scan for packages (must not be {@code null})
+         * @param packageFunction the function to determine the package info for each discovered package;
+         *        receives the package name and the existing package info (or {@code null}) and returns
+         *        the updated info (or {@code null} to skip the package) (must not be {@code null})
+         * @return this builder (not {@code null})
+         * @throws IOException if an I/O error occurs during package discovery
+         */
         public Builder addDiscoveredPackages(ResourceLoader loader,
                 BiFunction<String, PackageInfo, PackageInfo> packageFunction) throws IOException {
             Assert.checkNotNullParam("loader", loader);
@@ -510,6 +696,11 @@ public final class ModuleDescriptor {
             }
         }
 
+        /**
+         * Build the module descriptor.
+         *
+         * @return the constructed module descriptor (not {@code null})
+         */
         public ModuleDescriptor build() {
             return new ModuleDescriptor(this);
         }
@@ -1455,47 +1646,82 @@ public final class ModuleDescriptor {
         return new IllegalArgumentException("No module attribute found in module descriptor");
     }
 
+    /**
+     * {@return the module name (not {@code null})}
+     */
     public String name() {
         return name;
     }
 
+    /**
+     * {@return the optional module version (not {@code null})}
+     */
     public Optional<String> version() {
         return version;
     }
 
+    /**
+     * {@return the module modifiers (not {@code null})}
+     */
     public Modifier.Set modifiers() {
         return modifiers;
     }
 
+    /**
+     * {@return the optional main class name (not {@code null})}
+     */
     public Optional<String> mainClass() {
         return mainClass;
     }
 
+    /**
+     * {@return the optional module location URI (not {@code null})}
+     */
     public Optional<URI> location() {
         return location;
     }
 
+    /**
+     * {@return the list of module dependencies (not {@code null})}
+     */
     public List<Dependency> dependencies() {
         return dependencies;
     }
 
+    /**
+     * {@return the set of service class names that this module uses (not {@code null})}
+     */
     public Set<String> uses() {
         return uses;
     }
 
+    /**
+     * {@return the map of service class names to their provider implementation class names (not {@code null})}
+     */
     public Map<String, List<String>> provides() {
         return provides;
     }
 
+    /**
+     * {@return the map of package names to their package information (not {@code null})}
+     */
     public Map<String, PackageInfo> packages() {
         return packages;
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public boolean equals(Object obj) {
         return obj instanceof ModuleDescriptor other && equals(other);
     }
 
+    /**
+     * {@return {@code true} if the given module descriptor is equal to this one}
+     *
+     * @param other the other descriptor to compare (may be {@code null})
+     */
     public boolean equals(ModuleDescriptor other) {
         return this == other || other != null &&
                 name.equals(other.name) &&
@@ -1509,11 +1735,17 @@ public final class ModuleDescriptor {
                 packages.equals(other.packages);
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public int hashCode() {
         return Objects.hash(name, version, modifiers, mainClass, location, dependencies, uses, provides, packages);
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public String toString() {
         return "ModuleDescriptor[" +

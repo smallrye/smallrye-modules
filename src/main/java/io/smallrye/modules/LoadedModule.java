@@ -77,7 +77,7 @@ public final class LoadedModule {
     }
 
     /**
-     * {@return the optional name of the module}
+     * {@return the optional name of the module (not {@code null})}
      */
     public Optional<String> name() {
         if (module != null) {
@@ -113,14 +113,14 @@ public final class LoadedModule {
     }
 
     /**
-     * {@return a string representation of this loaded module}
+     * {@return a string representation of this loaded module (not {@code null})}
      */
     public String toString() {
         return module != null ? module.toString() : "module⁺ " + moduleClassLoader.moduleName();
     }
 
     /**
-     * {@return a loaded module for the given module}
+     * {@return a loaded module for the given module (not {@code null})}
      *
      * @param module the module to encapsulate (must not be {@code null})
      */
@@ -129,7 +129,7 @@ public final class LoadedModule {
     }
 
     /**
-     * {@return a loaded module for the given module class loader}
+     * {@return a loaded module for the given module class loader (not {@code null})}
      *
      * @param cl the class loader of the module to encapsulate (must not be {@code null})
      */

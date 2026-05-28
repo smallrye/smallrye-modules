@@ -35,7 +35,7 @@ public enum PackageAccess {
     }
 
     /**
-     * {@return the lesser of the two given access levels}
+     * {@return the lesser of the two given access levels (not {@code null})}
      *
      * @param access1 the first access level (must not be {@code null})
      * @param access2 the second access level (must not be {@code null})
@@ -45,7 +45,7 @@ public enum PackageAccess {
     }
 
     /**
-     * {@return the greater of the two given access levels}
+     * {@return the greater of the two given access levels (not {@code null})}
      *
      * @param access1 the first access level (must not be {@code null})
      * @param access2 the second access level (must not be {@code null})

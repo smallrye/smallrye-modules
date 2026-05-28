@@ -13,7 +13,7 @@ abstract class Modifiers<M extends Enum<M> & ModifierFlag> extends AbstractSet<M
     }
 
     /**
-     * {@return a string representation of this modifier set}
+     * {@return a string representation of this modifier set (not {@code null})}
      */
     public String toString() {
         int flags = this.flags;
@@ -157,14 +157,15 @@ abstract class Modifiers<M extends Enum<M> & ModifierFlag> extends AbstractSet<M
     }
 
     /**
-     * {@return a modifier set that includes the given modifier in addition to the modifiers in this set}
+     * {@return a modifier set that includes the given modifier in addition to the modifiers in this set (not {@code null})}
      *
      * @param item the modifier to add (may be {@code null}, which is ignored)
      */
     public abstract Modifiers<M> with(M item);
 
     /**
-     * {@return a modifier set that includes both of the given modifiers in addition to the modifiers in this set}
+     * {@return a modifier set that includes both of the given modifiers in addition to the modifiers in this set
+     * (not {@code null})}
      *
      * @param item0 the first modifier to add
      * @param item1 the second modifier to add
@@ -172,14 +173,15 @@ abstract class Modifiers<M extends Enum<M> & ModifierFlag> extends AbstractSet<M
     public abstract Modifiers<M> withAll(M item0, M item1);
 
     /**
-     * {@return a modifier set with the modifiers in this set, excluding the given modifier}
+     * {@return a modifier set with the modifiers in this set, excluding the given modifier (not {@code null})}
      *
      * @param item the modifier to remove
      */
     public abstract Modifiers<M> without(M item);
 
     /**
-     * {@return a modifier set with the modifiers in this set, except with presence (or absence) of the given modifier inverted}
+     * {@return a modifier set with the modifiers in this set, except with presence (or absence) of the given modifier inverted
+     * (not {@code null})}
      *
      * @param item the modifier to swap
      */

@@ -957,11 +957,14 @@ public final class ModuleDescriptor {
                     // else ignored
                 }
                 Map<String, PackageAccess> accesses;
-                if (addOpens.containsKey(depName) || addExports.containsKey(depName)) {
+                if (addOpens.containsKey(depName) || addExports.containsKey(depName)
+                        || extraAccesses.containsKey(depName)) {
                     accesses = Stream.concat(
                             Stream.concat(
-                                    addExports.get(depName).stream().map(pkg -> Map.entry(pkg, PackageAccess.EXPORTED)),
-                                    addOpens.get(depName).stream().map(pkg -> Map.entry(pkg, PackageAccess.OPEN))),
+                                    addExports.getOrDefault(depName, Set.of()).stream()
+                                            .map(pkg -> Map.entry(pkg, PackageAccess.EXPORTED)),
+                                    addOpens.getOrDefault(depName, Set.of()).stream()
+                                            .map(pkg -> Map.entry(pkg, PackageAccess.OPEN))),
                             extraAccesses.getOrDefault(depName, Map.of()).entrySet().stream())
                             .collect(Collectors.toUnmodifiableMap(Entry::getKey, Entry::getValue, PackageAccess::max));
                 } else {
@@ -1123,10 +1126,11 @@ public final class ModuleDescriptor {
             iter.next(); // consume
             while (iter.hasNext()) {
                 cp = iter.peekNext();
-                if (!Character.isJavaIdentifierPart(cp)) {
+                if (!Character.isJavaIdentifierPart(cp) && cp != '.') {
                     // done
                     return iter.substring(start);
                 }
+                iter.next();
             }
             // end of string
             return iter.substring(start);

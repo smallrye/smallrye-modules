@@ -26,16 +26,16 @@ public interface ModuleDescriptorLoader {
     ModuleDescriptor loadDescriptor(String moduleName, List<ResourceLoader> loaders) throws IOException;
 
     /**
-     * {@return a module opener which looks for a {@code module-info.class} file, or otherwise constructs an automatic module,
-     * possibly with no dependencies}
+     * {@return a module descriptor loader which looks for a {@code module-info.class} file, or otherwise constructs an
+     * automatic module, possibly with no dependencies (not {@code null})}
      */
     static ModuleDescriptorLoader basic() {
         return ModuleDescriptorLoader::loadDescriptorBasic;
     }
 
     /**
-     * {@return a module opener which looks for a {@code module-info.class} file, or otherwise constructs an automatic module,
-     * possibly with no dependencies}
+     * {@return a module descriptor loader which looks for a {@code module-info.class} file, or otherwise constructs an
+     * automatic module, possibly with no dependencies (not {@code null})}
      *
      * @param extraAccesses extra accesses to add (must not be {@code null})
      */

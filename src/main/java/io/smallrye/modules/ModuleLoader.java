@@ -39,7 +39,7 @@ public class ModuleLoader implements Closeable {
     }
 
     /**
-     * {@return the name of this module loader}
+     * {@return the name of this module loader (not {@code null})}
      */
     public String name() {
         return name;

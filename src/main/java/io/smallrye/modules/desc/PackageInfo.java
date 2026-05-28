@@ -40,7 +40,7 @@ public final class PackageInfo {
     private final Set<String> openTargets;
 
     /**
-     * {@return the canonical package info instance for the given access level}
+     * {@return the canonical package info instance for the given access level (not {@code null})}
      *
      * @param access the access level (must not be {@code null})
      */
@@ -53,7 +53,8 @@ public final class PackageInfo {
     }
 
     /**
-     * {@return a package info with the given access level and targets, returning a canonical instance when possible}
+     * {@return a package info with the given access level and targets, returning a canonical instance when possible
+     * (not {@code null})}
      *
      * @param packageAccess the access level (must not be {@code null})
      * @param exportTargets the specific export targets (must not be {@code null})
@@ -75,7 +76,7 @@ public final class PackageInfo {
     }
 
     /**
-     * {@return a package info that is the result of merging this info with the given info}
+     * {@return a package info that is the result of merging this info with the given info (not {@code null})}
      *
      * @param other the other package info (must not be {@code null})
      */
@@ -87,7 +88,7 @@ public final class PackageInfo {
     }
 
     /**
-     * {@return the result of merging two possibly-{@code null} package info instances}
+     * {@return the result of merging two possibly-{@code null} package info instances (not {@code null})}
      *
      * @param a the first package info (may be {@code null})
      * @param b the second package info (may be {@code null})
@@ -97,7 +98,7 @@ public final class PackageInfo {
     }
 
     /**
-     * {@return a package info with an access level that is at least as permissive as the given level}
+     * {@return a package info with an access level that is at least as permissive as the given level (not {@code null})}
      *
      * @param newAccess the minimum access level (must not be {@code null})
      */
@@ -109,7 +110,7 @@ public final class PackageInfo {
     }
 
     /**
-     * {@return a package info with the given export targets merged with existing targets}
+     * {@return a package info with the given export targets merged with existing targets (not {@code null})}
      *
      * @param exportTargets additional export targets (must not be {@code null})
      */
@@ -120,23 +121,40 @@ public final class PackageInfo {
                 openTargets());
     }
 
+    /**
+     * {@return the access level of this package (not {@code null})}
+     */
     public PackageAccess packageAccess() {
         return packageAccess;
     }
 
+    /**
+     * {@return the set of module names to which this package is specifically exported (not {@code null})}
+     */
     public Set<String> exportTargets() {
         return exportTargets;
     }
 
+    /**
+     * {@return the set of module names to which this package is specifically opened (not {@code null})}
+     */
     public Set<String> openTargets() {
         return openTargets;
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public boolean equals(Object obj) {
         return obj instanceof PackageInfo pi && equals(pi);
     }
 
+    /**
+     * {@return {@code true} if the given package info is equal to this one}
+     *
+     * @param other the other package info to compare (may be {@code null})
+     */
     public boolean equals(PackageInfo other) {
         return this == other || other != null
                 && packageAccess.equals(other.packageAccess)
@@ -144,11 +162,17 @@ public final class PackageInfo {
                 && openTargets.equals(other.openTargets);
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public int hashCode() {
         return Objects.hash(packageAccess, exportTargets, openTargets);
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public String toString() {
         return "PackageInfo[" +

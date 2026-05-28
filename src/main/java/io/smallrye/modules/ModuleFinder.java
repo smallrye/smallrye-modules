@@ -30,7 +30,8 @@ public interface ModuleFinder extends Closeable {
     FoundModule findModule(String name);
 
     /**
-     * {@return a module finder that first searches this finder, and then the given finder if no module is found}
+     * {@return a module finder that first searches this finder, and then the given finder if no module is found
+     * (not {@code null})}
      *
      * @param other the fallback finder (must not be {@code null})
      */

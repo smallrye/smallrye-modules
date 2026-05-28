@@ -141,28 +141,28 @@ public class ModuleClassLoader extends ClassLoader {
     }
 
     /**
-     * {@return the defining module loader of this module}
+     * {@return the defining module loader of this module (not {@code null})}
      */
     public final ModuleLoader moduleLoader() {
         return moduleLoader;
     }
 
     /**
-     * {@return the name of this class loader's module}
+     * {@return the name of this class loader's module (not {@code null})}
      */
     public String moduleName() {
         return moduleName;
     }
 
     /**
-     * {@return the module loaded by this class loader}
+     * {@return the module loaded by this class loader (not {@code null})}
      */
     public final Module module() {
         return linkDefined().module();
     }
 
     /**
-     * {@return the main class of this module, if any (not {@code null})}
+     * {@return the optional main class of this module (not {@code null})}
      */
     public final Optional<Class<?>> mainClass() {
         String mainClassName = this.mainClassName;
@@ -356,7 +356,7 @@ public class ModuleClassLoader extends ClassLoader {
     }
 
     /**
-     * {@return the set of exported package names for this module}
+     * {@return the set of exported package names for this module (not {@code null})}
      */
     public final Set<String> exportedPackages() {
         throw new UnsupportedOperationException("Not supported yet.");
@@ -387,6 +387,9 @@ public class ModuleClassLoader extends ClassLoader {
         return thread.getContextClassLoader() instanceof ModuleClassLoader mcl ? mcl : null;
     }
 
+    /**
+     * {@inheritDoc}
+     */
     public String toString() {
         return "ModuleClassLoader[" + moduleName + "]";
     }

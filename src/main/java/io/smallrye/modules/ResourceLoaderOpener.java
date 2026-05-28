@@ -36,7 +36,7 @@ public interface ResourceLoaderOpener {
     }
 
     /**
-     * {@return an opener that creates a path-based resource loader for the given directory}
+     * {@return an opener that creates a path-based resource loader for the given directory (not {@code null})}
      *
      * @param path the directory path (must not be {@code null})
      */
@@ -45,7 +45,7 @@ public interface ResourceLoaderOpener {
     }
 
     /**
-     * {@return an opener that creates a JAR file resource loader for the given path}
+     * {@return an opener that creates a JAR file resource loader for the given path (not {@code null})}
      *
      * @param jarPath the JAR file path (must not be {@code null})
      */
@@ -54,7 +54,7 @@ public interface ResourceLoaderOpener {
     }
 
     /**
-     * {@return an opener that creates a JAR file resource loader for the given resource}
+     * {@return an opener that creates a JAR file resource loader for the given resource (not {@code null})}
      *
      * @param jarResource the JAR file resource (must not be {@code null})
      */
@@ -63,7 +63,7 @@ public interface ResourceLoaderOpener {
     }
 
     /**
-     * {@return an opener that creates a URL-based resource loader for the given URL}
+     * {@return an opener that creates a URL-based resource loader for the given URL (not {@code null})}
      *
      * @param url the URL (must not be {@code null})
      */

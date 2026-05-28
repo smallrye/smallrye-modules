@@ -98,6 +98,10 @@ public final class Util {
         return new HashMap<>();
     }
 
+    public static <E> List<E> newArrayList(Object ignored) {
+        return new ArrayList<>();
+    }
+
     public static <K, V> Collector<Map.Entry<K, V>, ?, Map<K, V>> toMap() {
         return Collectors.toUnmodifiableMap(Map.Entry::getKey, Map.Entry::getValue);
     }

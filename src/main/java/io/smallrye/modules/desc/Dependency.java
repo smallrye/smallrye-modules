@@ -3,9 +3,11 @@ package io.smallrye.modules.desc;
 import java.lang.invoke.ConstantBootstraps;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.VarHandle;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 
 import io.smallrye.common.constraint.Assert;
@@ -15,55 +17,46 @@ import io.smallrye.modules.impl.Util;
 /**
  * A dependency description.
  * If no optional dependency resolver is given, the module's own dependency resolver will be used.
- *
- * @param moduleName the dependency name (must not be {@code null})
- * @param modifiers the dependency modifiers (must not be {@code null})
- * @param moduleLoader the optional module loader to use for this dependency (must not be {@code null})
- * @param packageAccesses extra package access to the given dependency (must not be {@code null})
  */
-public record Dependency(
-        String moduleName,
-        Modifier.Set modifiers,
-        Optional<ModuleLoader> moduleLoader,
-        Map<String, PackageAccess> packageAccesses) {
-    /**
-     * Construct a new instance.
-     */
-    public Dependency {
-        Assert.checkNotNullParam("moduleName", moduleName);
-        Assert.checkNotNullParam("modifiers", modifiers);
-        Assert.checkNotNullParam("moduleLoader", moduleLoader);
-        packageAccesses = Map.copyOf(packageAccesses);
+public final class Dependency {
+    private final String moduleName;
+    private final Modifier.Set modifiers;
+    private final Optional<ModuleLoader> moduleLoader;
+    private final Map<String, PackageAccess> packageAccesses;
+
+    private Dependency(Builder builder) {
+        moduleName = Assert.checkNotNullParam("moduleName", builder.moduleName);
+        modifiers = builder.modifiers;
+        moduleLoader = builder.moduleLoader;
+        packageAccesses = Map.copyOf(builder.packageAccesses);
     }
 
     /**
-     * Construct a new instance.
-     *
-     * @param moduleName the dependency name (must not be {@code null})
-     * @param modifiers the dependency modifiers (must not be {@code null})
-     * @param moduleLoader the optional module loader to use for this dependency (must not be {@code null})
+     * {@return the dependency module name}
      */
-    public Dependency(String moduleName, Modifier.Set modifiers, Optional<ModuleLoader> moduleLoader) {
-        this(moduleName, modifiers, moduleLoader, Map.of());
+    public String moduleName() {
+        return moduleName;
     }
 
     /**
-     * Construct a new instance.
-     *
-     * @param moduleName the dependency name (must not be {@code null})
+     * {@return the dependency modifiers}
      */
-    public Dependency(String moduleName) {
-        this(moduleName, Modifier.Set.of(), Optional.empty());
+    public Modifier.Set modifiers() {
+        return modifiers;
     }
 
     /**
-     * Construct a new instance.
-     *
-     * @param moduleName the dependency name (must not be {@code null})
-     * @param modifier the modifier to add (must not be {@code null})
+     * {@return the optional module loader to use for this dependency}
      */
-    public Dependency(String moduleName, Modifier modifier) {
-        this(moduleName, Modifier.Set.of(modifier), Optional.empty());
+    public Optional<ModuleLoader> moduleLoader() {
+        return moduleLoader;
+    }
+
+    /**
+     * {@return the extra package accesses for this dependency}
+     */
+    public Map<String, PackageAccess> packageAccesses() {
+        return packageAccesses;
     }
 
     /**
@@ -73,8 +66,49 @@ public record Dependency(
      */
     public Dependency withAdditionalPackageAccesses(Map<String, PackageAccess> packageAccesses) {
         Assert.checkNotNullParam("packageAccesses", packageAccesses);
-        return new Dependency(this.moduleName, this.modifiers, this.moduleLoader,
-                Util.merge(this.packageAccesses, packageAccesses, PackageAccess::max));
+        return new Builder(this)
+                .addPackageAccesses(packageAccesses)
+                .build();
+    }
+
+    /**
+     * {@return a dependency that is the semantic merge of this dependency with the given one}
+     * Both dependencies must have the same module name.
+     *
+     * @param dependency the dependency to merge with (must not be {@code null})
+     */
+    public Dependency mergedWith(Dependency dependency) {
+        Assert.checkNotNullParam("dependency", dependency);
+        if (!moduleName.equals(dependency.moduleName)) {
+            throw new IllegalArgumentException(
+                    "Dependency module name " + dependency.moduleName + " does not match our module name of " + moduleName);
+        }
+        Optional<ModuleLoader> mergedLoader;
+        if (moduleLoader.isPresent()) {
+            if (dependency.moduleLoader.isPresent()) {
+                throw new IllegalArgumentException("This dependency (on " + moduleName
+                        + ") and the dependency to merge specify conflicting module loaders");
+            } else {
+                mergedLoader = moduleLoader;
+            }
+        } else {
+            mergedLoader = dependency.moduleLoader;
+        }
+        Modifier.Set mergedModifiers = modifiers.mergedWith(dependency.modifiers);
+        Map<String, PackageAccess> mergedPackageAccesses = Util.merge(packageAccesses, dependency.packageAccesses);
+        if (modifiers.equals(mergedModifiers) && moduleLoader.equals(mergedLoader)
+                && packageAccesses.equals(mergedPackageAccesses)) {
+            return this;
+        } else if (dependency.modifiers.equals(mergedModifiers) && dependency.moduleLoader.equals(mergedLoader)
+                && packageAccesses.equals(mergedPackageAccesses)) {
+            return dependency;
+        } else {
+            return builder(moduleName)
+                    .mergeModifiers(mergedModifiers)
+                    .setModuleLoader(mergedLoader)
+                    .setPackageAccesses(mergedPackageAccesses)
+                    .build();
+        }
     }
 
     /**
@@ -173,6 +207,60 @@ public record Dependency(
      */
     public boolean isNonServices() {
         return !modifiers.contains(Modifier.SERVICES);
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    public boolean equals(final Object obj) {
+        return obj instanceof Dependency d && equals(d);
+    }
+
+    /**
+     * {@return {@code true} if the given dependency is equal to this one}
+     *
+     * @param other the other dependency to compare (may be {@code null})
+     */
+    public boolean equals(final Dependency other) {
+        return this == other || other != null
+                && moduleName.equals(other.moduleName)
+                && modifiers.equals(other.modifiers)
+                && moduleLoader.equals(other.moduleLoader)
+                && packageAccesses.equals(other.packageAccesses);
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    public int hashCode() {
+        return Objects.hash(moduleName, modifiers, moduleLoader, packageAccesses);
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    public String toString() {
+        return "Dependency[" +
+                "moduleName=" + moduleName + ", " +
+                "modifiers=" + modifiers + ", " +
+                "moduleLoader=" + moduleLoader + ", " +
+                "packageAccesses=" + packageAccesses + ']';
+    }
+
+    /**
+     * {@return a new builder for constructing a dependency}
+     */
+    public static Builder builder() {
+        return new Builder();
+    }
+
+    /**
+     * {@return a new builder for constructing a dependency with the given module name}
+     *
+     * @param moduleName the dependency module name (must not be {@code null})
+     */
+    public static Builder builder(String moduleName) {
+        return new Builder().setModuleName(moduleName);
     }
 
     /**
@@ -360,12 +448,37 @@ public record Dependency(
                 return setOf(flags ^ bit(item));
             }
 
+            /**
+             * Semantically merge this set with the given set.
+             * The returned set has all of the modifiers of the given set,
+             * with the exception that the {@link Dependency.Modifier#SYNTHETIC SYNTHETIC} modifier
+             * is only in the returned set if it was present in both this set and the given one.
+             *
+             * @param other the other set (must not be {@code null})
+             * @return the merged set (not {@code null})
+             */
+            public Set mergedWith(final Set other) {
+                return xor(SYNTHETIC).withAll(other.xor(SYNTHETIC)).xor(SYNTHETIC);
+            }
+
             public Iterator<Modifier> iterator() {
                 return new Biterator<>(flags, values);
             }
 
             public boolean contains(final Object o) {
                 return o instanceof Modifier m && contains(m);
+            }
+
+            public boolean equals(final Object o) {
+                return o instanceof Set other && equals(other);
+            }
+
+            public boolean equals(final Set other) {
+                return other != null && flags == other.flags;
+            }
+
+            public int hashCode() {
+                return flags;
             }
 
             Modifier value(final int index) {
@@ -396,9 +509,149 @@ public record Dependency(
     }
 
     /**
+     * A builder for {@link Dependency} instances.
+     */
+    public static final class Builder {
+        private String moduleName;
+        private Modifier.Set modifiers;
+        private Optional<ModuleLoader> moduleLoader;
+        private Map<String, PackageAccess> packageAccesses;
+
+        private Builder() {
+            modifiers = Modifier.Set.of();
+            moduleLoader = Optional.empty();
+            packageAccesses = Map.of();
+        }
+
+        private Builder(Dependency old) {
+            moduleName = old.moduleName;
+            modifiers = old.modifiers;
+            moduleLoader = old.moduleLoader;
+            packageAccesses = old.packageAccesses.isEmpty() ? Map.of() : new HashMap<>(old.packageAccesses);
+        }
+
+        /**
+         * Set the module name of the dependency.
+         *
+         * @param moduleName the module name (must not be {@code null})
+         * @return this builder
+         */
+        public Builder setModuleName(String moduleName) {
+            this.moduleName = Assert.checkNotNullParam("moduleName", moduleName);
+            return this;
+        }
+
+        /**
+         * Add a modifier to the dependency.
+         *
+         * @param modifier the modifier to add (must not be {@code null})
+         * @return this builder
+         */
+        public Builder addModifier(Modifier modifier) {
+            this.modifiers = this.modifiers.with(Assert.checkNotNullParam("modifier", modifier));
+            return this;
+        }
+
+        /**
+         * Remove a modifier from the dependency.
+         *
+         * @param modifier the modifier to remove (must not be {@code null})
+         * @return this builder
+         */
+        public Builder removeModifier(Modifier modifier) {
+            this.modifiers = this.modifiers.without(Assert.checkNotNullParam("modifier", modifier));
+            return this;
+        }
+
+        /**
+         * Merge the given modifier set into this dependency's modifiers.
+         *
+         * @param modifiers the modifiers to merge (must not be {@code null})
+         * @return this builder
+         */
+        public Builder mergeModifiers(Modifier.Set modifiers) {
+            this.modifiers = this.modifiers.mergedWith(Assert.checkNotNullParam("modifiers", modifiers));
+            return this;
+        }
+
+        /**
+         * Set the module loader for this dependency.
+         *
+         * @param moduleLoader the module loader (must not be {@code null})
+         * @return this builder
+         */
+        public Builder setModuleLoader(ModuleLoader moduleLoader) {
+            this.moduleLoader = Optional.of(moduleLoader);
+            return this;
+        }
+
+        /**
+         * Set the optional module loader for this dependency.
+         *
+         * @param moduleLoader the optional module loader (must not be {@code null})
+         * @return this builder
+         */
+        public Builder setModuleLoader(Optional<ModuleLoader> moduleLoader) {
+            this.moduleLoader = Assert.checkNotNullParam("moduleLoader", moduleLoader);
+            return this;
+        }
+
+        /**
+         * Add a package access entry, merging with any existing entry via {@link PackageAccess#max}.
+         *
+         * @param packageName the package name (must not be {@code null})
+         * @param access the access level (must not be {@code null})
+         * @return this builder
+         */
+        public Builder addPackageAccess(String packageName, PackageAccess access) {
+            Assert.checkNotNullParam("packageName", packageName);
+            Assert.checkNotNullParam("access", access);
+            if (packageAccesses.isEmpty()) {
+                packageAccesses = new HashMap<>();
+            }
+            packageAccesses.merge(packageName, access, PackageAccess::max);
+            return this;
+        }
+
+        /**
+         * Add multiple package access entries, merging each with any existing entry via {@link PackageAccess#max}.
+         *
+         * @param packageAccesses the package accesses to add (must not be {@code null})
+         * @return this builder
+         */
+        public Builder addPackageAccesses(Map<String, PackageAccess> packageAccesses) {
+            Assert.checkNotNullParam("packageAccesses", packageAccesses);
+            packageAccesses.forEach(this::addPackageAccess);
+            return this;
+        }
+
+        /**
+         * Replace the entire package accesses map.
+         *
+         * @param packageAccesses the replacement package accesses (must not be {@code null})
+         * @return this builder
+         */
+        public Builder setPackageAccesses(Map<String, PackageAccess> packageAccesses) {
+            Assert.checkNotNullParam("packageAccesses", packageAccesses);
+            this.packageAccesses = packageAccesses.isEmpty() ? Map.of() : new HashMap<>(packageAccesses);
+            return this;
+        }
+
+        /**
+         * Build the dependency.
+         *
+         * @return the constructed dependency (not {@code null})
+         */
+        public Dependency build() {
+            return new Dependency(this);
+        }
+    }
+
+    /**
      * The standard {@code java.base} dependency, for convenience.
      */
-    public static final Dependency JAVA_BASE = new Dependency("java.base",
-            Modifier.Set.of(Modifier.SYNTHETIC, Modifier.MANDATED),
-            Optional.empty(), Map.of());
+    public static final Dependency JAVA_BASE = builder("java.base")
+            .addModifier(Modifier.SYNTHETIC)
+            .addModifier(Modifier.MANDATED)
+            .build();
 }

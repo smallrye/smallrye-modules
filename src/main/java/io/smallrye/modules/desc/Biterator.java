@@ -8,10 +8,6 @@ final class Biterator<T> implements Iterator<T> {
     private final List<T> values;
     private int bits;
 
-    Biterator(final byte bits, final List<T> values) {
-        this(Byte.toUnsignedInt(bits), values);
-    }
-
     Biterator(final int bits, final List<T> values) {
         this.bits = bits;
         this.values = values;

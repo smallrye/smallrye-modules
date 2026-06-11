@@ -103,10 +103,11 @@ public final class PackageInfo {
      * @param newAccess the minimum access level (must not be {@code null})
      */
     public PackageInfo withAccessAtLeast(PackageAccess newAccess) {
-        return of(
-                PackageAccess.max(packageAccess(), newAccess),
-                exportTargets,
-                openTargets);
+        return packageAccess().isAtLeast(newAccess) ? this
+                : of(
+                        newAccess,
+                        exportTargets,
+                        openTargets);
     }
 
     /**
@@ -115,10 +116,24 @@ public final class PackageInfo {
      * @param exportTargets additional export targets (must not be {@code null})
      */
     public PackageInfo withExportTargets(final Set<String> exportTargets) {
-        return of(
-                packageAccess(),
-                Util.merge(exportTargets(), exportTargets),
-                openTargets());
+        return exportTargets().containsAll(exportTargets) ? this
+                : of(
+                        packageAccess(),
+                        Util.merge(exportTargets(), exportTargets),
+                        openTargets());
+    }
+
+    /**
+     * {@return a package info with the given open targets merged with existing targets (not {@code null})}
+     *
+     * @param openTargets additional open targets (must not be {@code null})
+     */
+    public PackageInfo withOpenTargets(final Set<String> openTargets) {
+        return exportTargets().containsAll(openTargets) ? this
+                : of(
+                        packageAccess(),
+                        exportTargets(),
+                        Util.merge(openTargets(), openTargets));
     }
 
     /**

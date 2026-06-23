@@ -48,7 +48,7 @@
         <dependency>
             <groupId>io.smallrye.classfile</groupId>
             <artifactId>jdk-classfile-backport</artifactId>
-            <version>26</version>
+            <version>27</version>
         </dependency>
         <dependency>
             <groupId>org.jboss.logging</groupId>

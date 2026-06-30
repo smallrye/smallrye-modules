@@ -783,8 +783,8 @@ public class ModuleClassLoader extends ClassLoader {
         }
     }
 
-    private static final List<Configuration> PARENT_CONFIGS = List.of(ModuleLayer.boot().configuration());
-    private static final List<ModuleLayer> BOOT_LAYER_ONLY = List.of(ModuleLayer.boot());
+    private static final List<Configuration> PARENT_CONFIGS = List.of(Util.myLayer.configuration());
+    private static final List<ModuleLayer> BOOT_LAYER_ONLY = List.of(Util.myLayer);
 
     private LinkState.Defined linkDefinedLocked(java.lang.module.ModuleDescriptor descriptor) {
         LinkState.Dependencies linkState = linkDependencies();

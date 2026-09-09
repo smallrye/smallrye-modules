@@ -58,6 +58,7 @@ import io.smallrye.modules.impl.Access;
 import io.smallrye.modules.impl.Util;
 import io.smallrye.modules.jfr.DefineDuplicateEvent;
 import io.smallrye.modules.jfr.DefineFailedEvent;
+import io.smallrye.modules.jfr.JfrSupport;
 import io.smallrye.modules.jfr.LinkEvent;
 
 /**
@@ -664,8 +665,9 @@ public class ModuleClassLoader extends ClassLoader {
         if (linkState instanceof LinkState.Dependencies dependencies) {
             return dependencies;
         }
-        LinkEvent event = new LinkEvent();
-        if (event.isEnabled()) {
+        LinkEvent event;
+        if (JfrSupport.ENABLED) {
+            event = new LinkEvent();
             event.moduleName = moduleName;
             event.moduleVersion = moduleVersion;
             event.linkStage = "dependencies";
@@ -736,8 +738,9 @@ public class ModuleClassLoader extends ClassLoader {
         if (linkState instanceof LinkState.Defined defined) {
             return defined;
         }
-        LinkEvent event = new LinkEvent();
-        if (event.isEnabled()) {
+        LinkEvent event;
+        if (JfrSupport.ENABLED) {
+            event = new LinkEvent();
             event.moduleName = moduleName;
             event.moduleVersion = moduleVersion;
             event.linkStage = "defined";
@@ -834,11 +837,12 @@ public class ModuleClassLoader extends ClassLoader {
         if (linkState instanceof LinkState.Packages packages) {
             return packages;
         }
-        LinkEvent event = new LinkEvent();
-        if (event.isEnabled()) {
+        LinkEvent event;
+        if (JfrSupport.ENABLED) {
+            event = new LinkEvent();
             event.moduleName = moduleName;
             event.moduleVersion = moduleVersion;
-            event.linkStage = "dependencies";
+            event.linkStage = "packages";
             event.begin();
         } else {
             event = null;
@@ -1000,8 +1004,9 @@ public class ModuleClassLoader extends ClassLoader {
         if (linkState instanceof LinkState.Provides provides) {
             return provides;
         }
-        LinkEvent event = new LinkEvent();
-        if (event.isEnabled()) {
+        LinkEvent event;
+        if (JfrSupport.ENABLED) {
+            event = new LinkEvent();
             event.moduleName = moduleName;
             event.moduleVersion = moduleVersion;
             event.linkStage = "provides";
@@ -1056,8 +1061,9 @@ public class ModuleClassLoader extends ClassLoader {
         if (linkState instanceof LinkState.Uses uses) {
             return uses;
         }
-        LinkEvent event = new LinkEvent();
-        if (event.isEnabled()) {
+        LinkEvent event;
+        if (JfrSupport.ENABLED) {
+            event = new LinkEvent();
             event.moduleName = moduleName;
             event.moduleVersion = moduleVersion;
             event.linkStage = "uses";
@@ -1179,8 +1185,8 @@ public class ModuleClassLoader extends ClassLoader {
             return defineClass(binaryName, buffer, pd);
         } catch (VerifyError e) {
             // serious problem!
-            DefineFailedEvent event = new DefineFailedEvent();
-            if (event.isEnabled()) {
+            if (JfrSupport.ENABLED) {
+                DefineFailedEvent event = new DefineFailedEvent();
                 event.className = binaryName;
                 event.moduleName = moduleName;
                 event.moduleVersion = moduleVersion;
@@ -1192,8 +1198,8 @@ public class ModuleClassLoader extends ClassLoader {
             // probably a duplicate
             Class<?> loaded = findLoadedClass(binaryName);
             if (loaded != null) {
-                DefineDuplicateEvent event = new DefineDuplicateEvent();
-                if (event.isEnabled()) {
+                if (JfrSupport.ENABLED) {
+                    DefineDuplicateEvent event = new DefineDuplicateEvent();
                     event.className = binaryName;
                     event.moduleName = moduleName;
                     event.moduleVersion = moduleVersion;
@@ -1201,9 +1207,9 @@ public class ModuleClassLoader extends ClassLoader {
                 }
                 return loaded;
             }
-            // actually some other problem
-            DefineFailedEvent event = new DefineFailedEvent();
-            if (event.isEnabled()) {
+            if (JfrSupport.ENABLED) {
+                // actually some other problem
+                DefineFailedEvent event = new DefineFailedEvent();
                 event.className = binaryName;
                 event.moduleName = moduleName;
                 event.moduleVersion = moduleVersion;

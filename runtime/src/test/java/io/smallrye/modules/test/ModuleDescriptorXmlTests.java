@@ -241,6 +241,27 @@ public final class ModuleDescriptorXmlTests {
     }
 
     @Test
+    public void javaBaseDependencyWithAddOpensPreservedAfterOtherDependencies() throws IOException {
+        String xml = """
+                <module xmlns="%s" name="org.jboss.threads" version="3.10.1">
+                    <dependencies>
+                        <dependency name="java.base" optional="true">
+                            <add-opens name="java.lang"/>
+                        </dependency>
+                        <dependency name="java.management"/>
+                        <dependency name="org.jboss.logging"/>
+                    </dependencies>
+                </module>""".formatted(NS);
+        ModuleDescriptor desc = parseXml(xml);
+        Dependency jb = desc.dependencies().stream()
+                .filter(d -> d.moduleName().equals("java.base"))
+                .findFirst()
+                .orElseThrow();
+        assertEquals(PackageAccess.OPEN, jb.packageAccesses().get("java.lang"),
+                "java.base add-opens must not be lost when subsequent dependencies are parsed");
+    }
+
+    @Test
     public void dependencyWithAddExportsAndOpens() throws IOException {
         // add-opens should upgrade add-exports
         String xml = """

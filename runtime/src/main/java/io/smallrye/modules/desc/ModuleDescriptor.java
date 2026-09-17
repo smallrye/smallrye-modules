@@ -470,7 +470,7 @@ public final class ModuleDescriptor {
         public Builder addDependency(Dependency dependency) {
             Assert.checkNotNullParam("dependency", dependency);
             if (!dependency.equals(Dependency.JAVA_BASE)) {
-                if (dependencies.size() == 1) {
+                if (dependencies == INITIAL_DEP_MAP) {
                     dependencies = new LinkedHashMap<>();
                     dependencies.putAll(INITIAL_DEP_MAP);
                 }

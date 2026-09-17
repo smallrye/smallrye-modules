@@ -217,6 +217,26 @@ public final class ModuleDescriptorBuilderTests {
         assertEquals(1, count);
     }
 
+    @Test
+    public void addJavaBaseWithPackageAccessesPreservedAfterOtherDependencies() {
+        Dependency jbWithOpens = Dependency.builder("java.base")
+                .addModifier(Dependency.Modifier.OPTIONAL)
+                .addPackageAccess("java.lang", PackageAccess.OPEN)
+                .build();
+        ModuleDescriptor desc = ModuleDescriptor.builder()
+                .setName("m")
+                .addDependency(jbWithOpens)
+                .addDependency(Dependency.builder("other.module").build())
+                .addDependency(Dependency.builder("another.module").build())
+                .build();
+        Dependency jb = desc.dependencies().stream()
+                .filter(d -> d.moduleName().equals("java.base"))
+                .findFirst()
+                .orElseThrow();
+        assertEquals(PackageAccess.OPEN, jb.packageAccesses().get("java.lang"),
+                "java.base add-opens must not be lost when subsequent dependencies are added");
+    }
+
     // --- uses ---
 
     @Test

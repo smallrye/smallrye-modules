@@ -10,7 +10,7 @@
 
     <groupId>io.smallrye.modules</groupId>
     <artifactId>smallrye-modules-parent</artifactId>
-    <version>1.0.beta2</version>
+    <version>1.0-SNAPSHOT</version>
     <packaging>pom</packaging>
 
     <name>SmallRye Modules - Parent</name>
@@ -81,8 +81,4 @@
             </plugin>
         </plugins>
     </build>
-
-  <scm>
-    <tag>1.0.beta2</tag>
-  </scm>
 </project>
